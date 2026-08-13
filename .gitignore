@@ -47,3 +47,6 @@ backend/**/__pycache__
 backend/generated
 backend/uploads
 *.pyc
+
+.vercel
+.env*

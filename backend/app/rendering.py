@@ -106,7 +106,10 @@ def _paste_block(canvas: Image.Image, url: str, x: int, y: int, width: int, heig
     try:
         img = _fetch_image(url)
         if width > 0 and height > 0:
-            img = img.resize((width, height), Image.LANCZOS)
+            # Cover-fill + center-crop (same as the background) rather than a
+            # plain resize, so mismatched aspect ratios crop instead of
+            # stretching/squashing the image.
+            img = _cover_resize(img, width, height)
         canvas.alpha_composite(img, (x, y))
     except Exception:
         logger.warning("Failed to fetch/paste image %r at (%s, %s)", url, x, y, exc_info=True)

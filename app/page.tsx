@@ -16,7 +16,7 @@ import { PresetSelector } from './components/PresetSelector';
 import { CustomPresetsPanel } from './components/CustomPresetsPanel';
 import { CustomPreset, deleteCustomPreset, loadCustomPresets, saveCustomPreset } from './lib/customPresets';
 import { BulkCreatePanel } from './components/BulkCreatePanel';
-import { API_ORIGIN, apiUrl } from './lib/api';
+import { apiUrl, resolveAssetUrl } from './lib/api';
 
 interface Asset {
   filename: string;
@@ -156,7 +156,7 @@ export default function PostGenerator() {
 
   return (
     <main className="flex min-h-screen bg-zinc-950 text-white p-8 gap-8">
-      <div className="w-1/2 flex flex-col gap-4 overflow-y-auto max-h-screen pr-2">
+      <div className="w-1/2 flex flex-col gap-4 overflow-y-auto max-h-screen px-4 py-2">
         <h1 className="text-2xl font-bold">Post Generator Config</h1>
 
         <div>
@@ -309,10 +309,10 @@ export default function PostGenerator() {
             <h2 className="text-lg font-semibold mb-2">Recent Generations</h2>
             <div className="grid grid-cols-4 gap-2">
               {recentAssets.map((asset) => (
-                <a key={asset.filename} href={`${API_ORIGIN}${asset.url}`} target="_blank" rel="noreferrer">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- served from a local FastAPI backend, not next/image's remote loader */}
+                <a key={asset.filename} href={resolveAssetUrl(asset.url)} target="_blank" rel="noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- served from a local FastAPI backend or Vercel Blob, not next/image's remote loader */}
                   <img
-                    src={`${API_ORIGIN}${asset.url}`}
+                    src={resolveAssetUrl(asset.url)}
                     alt={asset.filename}
                     className="w-full aspect-[9/16] object-cover rounded border border-zinc-800 hover:border-amber-500 transition"
                   />

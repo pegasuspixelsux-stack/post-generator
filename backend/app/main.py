@@ -11,9 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
+from . import blob as blob_store
 from .bulk import MAX_BULK_ITEMS, BulkGenerateRequest, render_bulk
 from .fonts import list_families
 from .models import GenerateGraphicRequest
+from .persist import persist_generated
 from .rendering import OUTPUT_FORMATS, render_graphic
 
 logging.basicConfig(level=logging.INFO)
@@ -84,9 +86,13 @@ def get_fonts() -> dict:
 
 @api.post("/upload")
 async def upload_image(request: Request, file: UploadFile = File(...)) -> dict:
-    """Save an uploaded image to the temp uploads folder and hand back a URL
-    that can be dropped straight into background_image_url / logo.url /
-    a secondary image's url — the renderer fetches it like any other URL."""
+    """Save an uploaded image and hand back a URL that can be dropped
+    straight into background_image_url / logo.url / a secondary image's url
+    — the renderer fetches it like any other URL.
+
+    Uses Vercel Blob when configured (BLOB_READ_WRITE_TOKEN set — durable,
+    works across serverless instances). Falls back to local disk otherwise,
+    which is the normal case for local development."""
     if file.content_type not in ALLOWED_UPLOAD_TYPES:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {file.content_type}")
 
@@ -94,18 +100,19 @@ async def upload_image(request: Request, file: UploadFile = File(...)) -> dict:
     if suffix not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
         suffix = ".jpg"
     filename = f"{uuid.uuid4().hex}{suffix}"
-    dest = UPLOADS_DIR / filename
 
-    size = 0
-    with dest.open("wb") as out:
-        while chunk := await file.read(1024 * 1024):
-            size += len(chunk)
-            if size > MAX_UPLOAD_BYTES:
-                out.close()
-                dest.unlink(missing_ok=True)
-                raise HTTPException(status_code=413, detail="File too large (max 15 MB)")
-            out.write(chunk)
+    data = bytearray()
+    while chunk := await file.read(1024 * 1024):
+        data.extend(chunk)
+        if len(data) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="File too large (max 15 MB)")
+    payload = bytes(data)
 
+    if blob_store.is_configured():
+        result = blob_store.upload(f"uploads/{filename}", payload, file.content_type)
+        return {"filename": filename, "path": result["pathname"], "url": result["url"]}
+
+    (UPLOADS_DIR / filename).write_bytes(payload)
     url_path = f"{API_PREFIX}/uploads/files/{filename}"
     return {"filename": filename, "path": url_path, "url": str(request.base_url).rstrip("/") + url_path}
 
@@ -120,8 +127,7 @@ def generate_graphic(req: GenerateGraphicRequest) -> Response:
         raise HTTPException(status_code=500, detail=f"Failed to render graphic: {exc}") from exc
 
     if req.persist:
-        filename = f"{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}.{ext}"
-        (GENERATED_DIR / filename).write_bytes(image_bytes)
+        persist_generated(image_bytes, mime, ext, GENERATED_DIR)
 
     return Response(content=image_bytes, media_type=mime)
 
@@ -149,6 +155,23 @@ def generate_graphic_bulk(req: BulkGenerateRequest) -> Response:
 @api.get("/assets")
 def list_assets(limit: int = 12) -> dict:
     """Most recent persisted graphics, newest first."""
+    if blob_store.is_configured():
+        try:
+            blobs = blob_store.list_blobs(prefix="generated/", limit=limit)
+        except Exception:
+            logging.getLogger("post_generator.api").warning("Failed to list Blob assets", exc_info=True)
+            blobs = []
+        blobs.sort(key=lambda b: b.get("uploadedAt") or "", reverse=True)
+        items = [
+            {
+                "filename": b["pathname"].rsplit("/", 1)[-1],
+                "url": b["url"],  # absolute Blob URL — used as-is by the frontend
+                "created_at": b.get("uploadedAt"),
+            }
+            for b in blobs[:limit]
+        ]
+        return {"assets": items}
+
     extensions = {ext for _fmt, _mime, ext in OUTPUT_FORMATS.values()}
     files = sorted(
         (f for ext in extensions for f in GENERATED_DIR.glob(f"*.{ext}")),

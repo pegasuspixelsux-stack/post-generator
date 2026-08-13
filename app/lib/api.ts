@@ -15,3 +15,12 @@ export const API_PREFIX = '/api/backend';
 export function apiUrl(path: string): string {
   return `${API_ORIGIN}${API_PREFIX}${path}`;
 }
+
+/**
+ * Resolve an asset URL returned by /assets. In production these are
+ * absolute Vercel Blob URLs (a different domain entirely) and must be used
+ * as-is; in local dev they're paths relative to the backend origin.
+ */
+export function resolveAssetUrl(url: string): string {
+  return /^https?:\/\//.test(url) ? url : `${API_ORIGIN}${url}`;
+}

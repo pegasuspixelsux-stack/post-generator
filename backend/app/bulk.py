@@ -6,13 +6,13 @@ from __future__ import annotations
 import io
 import logging
 import zipfile
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
 from .models import GenerateGraphicRequest
+from .persist import persist_generated
 from .rendering import OUTPUT_FORMATS, render_graphic
 
 logger = logging.getLogger("post_generator.bulk")
@@ -54,7 +54,7 @@ def render_bulk(req: BulkGenerateRequest, generated_dir: Path) -> bytes:
     """Render every item and return a zip archive of the encoded images.
     Individual item failures are logged and skipped rather than aborting
     the whole batch."""
-    _pil_format, _mime, ext = OUTPUT_FORMATS[req.base.output_format]
+    _pil_format, mime, ext = OUTPUT_FORMATS[req.base.output_format]
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for idx, item in enumerate(req.items, start=1):
@@ -69,7 +69,6 @@ def render_bulk(req: BulkGenerateRequest, generated_dir: Path) -> bytes:
             zf.writestr(filename, image_bytes)
 
             if req.base.persist:
-                persisted_name = f"{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-bulk{idx:03d}.{ext}"
-                (generated_dir / persisted_name).write_bytes(image_bytes)
+                persist_generated(image_bytes, mime, ext, generated_dir, suffix=f"bulk{idx:03d}-")
 
     return buf.getvalue()
