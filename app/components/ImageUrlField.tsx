@@ -17,12 +17,14 @@ export function ImageUrlField({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [thumbBroken, setThumbBroken] = useState(false);
 
   const handleFile = async (file: File) => {
     setUploading(true);
     setError(null);
     try {
       const url = await uploadImage(file);
+      setThumbBroken(false);
       onChange(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
@@ -35,11 +37,24 @@ export function ImageUrlField({
     <div className="flex flex-col gap-1">
       {label && <span className="text-sm text-zinc-400">{label}</span>}
       <div className="flex gap-2">
+        {value && !thumbBroken && (
+          // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-supplied/uploaded URL, not next/image-compatible
+          <img
+            src={value}
+            alt=""
+            onError={() => setThumbBroken(true)}
+            onLoad={() => setThumbBroken(false)}
+            className="shrink-0 h-9 w-9 rounded border border-zinc-800 object-cover bg-zinc-900"
+          />
+        )}
         <input
           className="bg-zinc-900 border border-zinc-800 p-2 rounded w-full text-sm"
           value={value}
           placeholder={placeholder ?? 'Image URL'}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            setThumbBroken(false);
+            onChange(e.target.value);
+          }}
         />
         <button
           type="button"
@@ -62,6 +77,9 @@ export function ImageUrlField({
         />
       </div>
       {error && <span className="text-xs text-red-400">{error}</span>}
+      {value && thumbBroken && !error && (
+        <span className="text-xs text-red-400">Image failed to load — check the URL.</span>
+      )}
     </div>
   );
 }

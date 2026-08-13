@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FontFamily, GraphicConfig } from './lib/types';
 import { nextId } from './lib/color';
 import { presets } from './lib/presets';
@@ -16,6 +16,7 @@ import { PresetSelector } from './components/PresetSelector';
 import { CustomPresetsPanel } from './components/CustomPresetsPanel';
 import { CustomPreset, deleteCustomPreset, loadCustomPresets, saveCustomPreset } from './lib/customPresets';
 import { BulkCreatePanel } from './components/BulkCreatePanel';
+import { LivePreviewCanvas } from './components/LivePreviewCanvas';
 import { apiUrl, resolveAssetUrl } from './lib/api';
 
 interface Asset {
@@ -37,6 +38,18 @@ export default function PostGenerator() {
   const [bulkZipUrl, setBulkZipUrl] = useState<string | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
+
+  // Once a real render exists, any further edit falls back to the live
+  // preview canvas so the change is visible immediately instead of showing
+  // a now-stale generated image.
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    setImageUrl(null);
+  }, [config]);
 
   const refreshAssets = async () => {
     try {
@@ -337,7 +350,12 @@ export default function PostGenerator() {
             </a>
           </>
         ) : (
-          <span className="text-zinc-500">Preview will appear here</span>
+          <>
+            <LivePreviewCanvas config={config} />
+            <span className="text-xs text-zinc-500">
+              Live preview (approximate) — click Generate for the final render
+            </span>
+          </>
         )}
       </div>
     </main>
