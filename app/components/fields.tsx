@@ -140,6 +140,37 @@ export function RemoveButton({ onClick, label = 'Remove' }: { onClick: () => voi
   );
 }
 
+/** Left/Center/Right one-shot alignment buttons + a padding-from-edge input.
+ * Clicking a button snaps x to that alignment right now; it isn't a
+ * persistent mode — editing x manually afterward is unaffected. */
+export function AlignRow({
+  padding,
+  onPaddingChange,
+  onAlign,
+}: {
+  padding: number;
+  onPaddingChange: (v: number) => void;
+  onAlign: (align: 'left' | 'center' | 'right') => void;
+}) {
+  return (
+    <div className="flex items-end gap-2">
+      <div className="flex gap-1">
+        {(['left', 'center', 'right'] as const).map((align) => (
+          <button
+            key={align}
+            type="button"
+            onClick={() => onAlign(align)}
+            className="text-xs capitalize bg-zinc-900 border border-zinc-800 hover:border-amber-500 hover:text-amber-500 text-zinc-300 px-2 py-2 rounded transition"
+          >
+            {align}
+          </button>
+        ))}
+      </div>
+      <NumberField label="Padding (px)" value={padding} onChange={onPaddingChange} />
+    </div>
+  );
+}
+
 export function AddButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button

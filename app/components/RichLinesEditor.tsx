@@ -1,27 +1,41 @@
 'use client';
 
+import { useState } from 'react';
 import { FontFamily, RichLine } from '../lib/types';
 import { nextId } from '../lib/color';
-import { AddButton, CheckboxField, ColorField, NumberField, RemoveButton, SelectField, TextField } from './fields';
+import { alignedX, Align } from '../lib/align';
+import { measureLineWidth } from '../lib/measureText';
+import { AddButton, AlignRow, CheckboxField, ColorField, NumberField, RemoveButton, SelectField, TextField } from './fields';
 
 const FALLBACK_FONTS: FontFamily[] = [{ id: 'Poppins', name: 'Poppins', has_bold: true }];
+const DEFAULT_PADDING = 80;
 
 export function RichLinesEditor({
   lines,
   onChange,
   fonts,
+  canvasWidth,
 }: {
   lines: RichLine[];
   onChange: (lines: RichLine[]) => void;
   fonts?: FontFamily[];
+  canvasWidth: number;
 }) {
   const fontOptions = (fonts && fonts.length > 0 ? fonts : FALLBACK_FONTS).map((f) => ({
     value: f.id,
     label: f.name,
   }));
   const defaultFont = fontOptions[0]?.value ?? 'Poppins';
+  const [paddingByLine, setPaddingByLine] = useState<Record<string, number>>({});
+
   const updateLine = (id: string, patch: Partial<RichLine>) => {
     onChange(lines.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  };
+
+  const handleAlign = async (line: RichLine, align: Align) => {
+    const padding = paddingByLine[line.id] ?? DEFAULT_PADDING;
+    const width = await measureLineWidth(line.spans);
+    updateLine(line.id, { x: alignedX(align, canvasWidth, width, padding) });
   };
 
   const addLine = () => {
@@ -51,6 +65,11 @@ export function RichLinesEditor({
             <NumberField label="X" value={line.x} onChange={(v) => updateLine(line.id, { x: v })} />
             <NumberField label="Y" value={line.y} onChange={(v) => updateLine(line.id, { y: v })} />
           </div>
+          <AlignRow
+            padding={paddingByLine[line.id] ?? DEFAULT_PADDING}
+            onPaddingChange={(v) => setPaddingByLine((prev) => ({ ...prev, [line.id]: v }))}
+            onAlign={(align) => void handleAlign(line, align)}
+          />
 
           <div className="flex flex-col gap-2">
             {line.spans.map((span, spanIdx) => (

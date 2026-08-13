@@ -6,7 +6,8 @@ import { FontFamily, GraphicConfig } from './lib/types';
 import { nextId } from './lib/color';
 import { presets } from './lib/presets';
 import { buildGenerateRequestBody, OutputFormat } from './lib/buildRequest';
-import { NumberField, ColorField, SelectField } from './components/fields';
+import { NumberField, ColorField, SelectField, AlignRow } from './components/fields';
+import { alignedX } from './lib/align';
 import { ImageUrlField } from './components/ImageUrlField';
 import { OverlayEditor } from './components/OverlayEditor';
 import { RichLinesEditor } from './components/RichLinesEditor';
@@ -38,6 +39,7 @@ export default function PostGenerator() {
   const [bulkZipUrl, setBulkZipUrl] = useState<string | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
+  const [logoPadding, setLogoPadding] = useState(80);
 
   // Once a real render exists, any further edit falls back to the live
   // preview canvas so the change is visible immediately instead of showing
@@ -239,6 +241,14 @@ export default function PostGenerator() {
               onChange={(v) => setConfig({ ...config, logo: { ...config.logo, y: v } })}
             />
           </div>
+          <AlignRow
+            padding={logoPadding}
+            onPaddingChange={setLogoPadding}
+            onAlign={(align) => {
+              const x = alignedX(align, config.canvasWidth, config.logo.width, logoPadding);
+              setConfig({ ...config, logo: { ...config.logo, x } });
+            }}
+          />
         </div>
 
         <h2 className="text-lg font-semibold mt-4">Secondary Images</h2>
@@ -281,6 +291,7 @@ export default function PostGenerator() {
           lines={config.richLines}
           onChange={(richLines) => setConfig({ ...config, richLines })}
           fonts={fonts}
+          canvasWidth={config.canvasWidth}
         />
 
         <div className="mt-4">
