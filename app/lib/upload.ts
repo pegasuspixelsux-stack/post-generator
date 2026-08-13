@@ -1,9 +1,9 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8080';
+import { apiUrl } from './api';
 
 export async function uploadImage(file: File): Promise<string> {
   const form = new FormData();
   form.append('file', file);
-  const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: form });
+  const res = await fetch(apiUrl('/upload'), { method: 'POST', body: form });
   if (!res.ok) {
     const detail = await res.text();
     throw new Error(detail || 'Upload failed');

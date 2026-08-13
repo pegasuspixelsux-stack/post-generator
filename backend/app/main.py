@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
@@ -17,19 +18,37 @@ from .rendering import OUTPUT_FORMATS, render_graphic
 
 logging.basicConfig(level=logging.INFO)
 
-GENERATED_DIR = Path(__file__).resolve().parent.parent / "generated"
+# This backend is deployed as a Vercel Service behind a top-level rewrite
+# (see vercel.json) that routes /api/backend/* here. Per Vercel's Services
+# routing model the service receives the *full, unstripped* request path —
+# GET /api/backend/health arrives as /api/backend/health, not /health — so
+# every route below is registered under this same prefix, both locally and
+# in production, to keep one consistent set of URLs everywhere.
+API_PREFIX = "/api/backend"
+
+# Vercel Functions have a read-only filesystem except /tmp, and /tmp itself
+# is ephemeral (wiped between cold starts, not shared across instances) —
+# fine for this app's "best-effort" scratch/persist behavior, but writing to
+# the project directory (the local-dev default) would crash the function
+# outright. VERCEL is set automatically in the deployed runtime.
+_ON_VERCEL = bool(os.environ.get("VERCEL"))
+_DATA_ROOT = Path("/tmp") if _ON_VERCEL else Path(__file__).resolve().parent.parent
+
+GENERATED_DIR = _DATA_ROOT / "generated"
 GENERATED_DIR.mkdir(exist_ok=True)
 
 # Scratch space for source images uploaded from the frontend (backgrounds,
 # logos, secondary images). Not meant as permanent storage — files here just
-# need to outlive the request that references their URL. Gitignored.
-UPLOADS_DIR = Path(__file__).resolve().parent.parent / "uploads"
+# need to outlive the request that references their URL. Gitignored locally;
+# ephemeral /tmp on Vercel.
+UPLOADS_DIR = _DATA_ROOT / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
 
 ALLOWED_UPLOAD_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15 MB
 
 app = FastAPI(title="Post Generator API")
+api = APIRouter(prefix=API_PREFIX)
 
 app.add_middleware(
     CORSMiddleware,
@@ -44,16 +63,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/assets/files", StaticFiles(directory=GENERATED_DIR), name="generated-assets")
-app.mount("/uploads/files", StaticFiles(directory=UPLOADS_DIR), name="uploaded-assets")
+app.mount(f"{API_PREFIX}/assets/files", StaticFiles(directory=GENERATED_DIR), name="generated-assets")
+app.mount(f"{API_PREFIX}/uploads/files", StaticFiles(directory=UPLOADS_DIR), name="uploaded-assets")
 
 
-@app.get("/health")
+@api.get("/health")
 def health() -> dict:
     return {"status": "ok"}
 
 
-@app.get("/fonts")
+@api.get("/fonts")
 def get_fonts() -> dict:
     return {
         "fonts": [
@@ -63,7 +82,7 @@ def get_fonts() -> dict:
     }
 
 
-@app.post("/upload")
+@api.post("/upload")
 async def upload_image(request: Request, file: UploadFile = File(...)) -> dict:
     """Save an uploaded image to the temp uploads folder and hand back a URL
     that can be dropped straight into background_image_url / logo.url /
@@ -87,11 +106,11 @@ async def upload_image(request: Request, file: UploadFile = File(...)) -> dict:
                 raise HTTPException(status_code=413, detail="File too large (max 15 MB)")
             out.write(chunk)
 
-    url_path = f"/uploads/files/{filename}"
+    url_path = f"{API_PREFIX}/uploads/files/{filename}"
     return {"filename": filename, "path": url_path, "url": str(request.base_url).rstrip("/") + url_path}
 
 
-@app.post("/generate-graphic")
+@api.post("/generate-graphic")
 def generate_graphic(req: GenerateGraphicRequest) -> Response:
     _pil_format, mime, ext = OUTPUT_FORMATS[req.output_format]
     try:
@@ -107,7 +126,7 @@ def generate_graphic(req: GenerateGraphicRequest) -> Response:
     return Response(content=image_bytes, media_type=mime)
 
 
-@app.post("/generate-graphic/bulk")
+@api.post("/generate-graphic/bulk")
 def generate_graphic_bulk(req: BulkGenerateRequest) -> Response:
     if not req.items:
         raise HTTPException(status_code=400, detail="items must not be empty")
@@ -127,7 +146,7 @@ def generate_graphic_bulk(req: BulkGenerateRequest) -> Response:
     )
 
 
-@app.get("/assets")
+@api.get("/assets")
 def list_assets(limit: int = 12) -> dict:
     """Most recent persisted graphics, newest first."""
     extensions = {ext for _fmt, _mime, ext in OUTPUT_FORMATS.values()}
@@ -139,9 +158,12 @@ def list_assets(limit: int = 12) -> dict:
     items = [
         {
             "filename": f.name,
-            "url": f"/assets/files/{f.name}",
+            "url": f"{API_PREFIX}/assets/files/{f.name}",
             "created_at": datetime.fromtimestamp(f.stat().st_mtime, tz=timezone.utc).isoformat(),
         }
         for f in files[:limit]
     ]
     return {"assets": items}
+
+
+app.include_router(api)

@@ -16,8 +16,7 @@ import { PresetSelector } from './components/PresetSelector';
 import { CustomPresetsPanel } from './components/CustomPresetsPanel';
 import { CustomPreset, deleteCustomPreset, loadCustomPresets, saveCustomPreset } from './lib/customPresets';
 import { BulkCreatePanel } from './components/BulkCreatePanel';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8080';
+import { API_ORIGIN, apiUrl } from './lib/api';
 
 interface Asset {
   filename: string;
@@ -41,7 +40,7 @@ export default function PostGenerator() {
 
   const refreshAssets = async () => {
     try {
-      const res = await fetch(`${API_BASE}/assets`);
+      const res = await fetch(apiUrl('/assets'));
       if (!res.ok) return;
       const data = await res.json();
       setRecentAssets(data.assets ?? []);
@@ -52,7 +51,7 @@ export default function PostGenerator() {
 
   const refreshFonts = async () => {
     try {
-      const res = await fetch(`${API_BASE}/fonts`);
+      const res = await fetch(apiUrl('/fonts'));
       if (!res.ok) return;
       const data = await res.json();
       setFonts(data.fonts ?? []);
@@ -92,7 +91,7 @@ export default function PostGenerator() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/generate-graphic`, {
+      const response = await fetch(apiUrl('/generate-graphic'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(buildGenerateRequestBody(config, outputFormat, true)),
@@ -129,7 +128,7 @@ export default function PostGenerator() {
         background_image_url: images[i] || null,
         text: texts[i] ?? null,
       }));
-      const response = await fetch(`${API_BASE}/generate-graphic/bulk`, {
+      const response = await fetch(apiUrl('/generate-graphic/bulk'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -310,10 +309,10 @@ export default function PostGenerator() {
             <h2 className="text-lg font-semibold mb-2">Recent Generations</h2>
             <div className="grid grid-cols-4 gap-2">
               {recentAssets.map((asset) => (
-                <a key={asset.filename} href={`${API_BASE}${asset.url}`} target="_blank" rel="noreferrer">
+                <a key={asset.filename} href={`${API_ORIGIN}${asset.url}`} target="_blank" rel="noreferrer">
                   {/* eslint-disable-next-line @next/next/no-img-element -- served from a local FastAPI backend, not next/image's remote loader */}
                   <img
-                    src={`${API_BASE}${asset.url}`}
+                    src={`${API_ORIGIN}${asset.url}`}
                     alt={asset.filename}
                     className="w-full aspect-[9/16] object-cover rounded border border-zinc-800 hover:border-amber-500 transition"
                   />
