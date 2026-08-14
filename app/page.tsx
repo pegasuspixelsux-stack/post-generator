@@ -254,11 +254,16 @@ export default function PostGenerator() {
             placeholder="Logo URL"
             onChange={(v) => setConfig({ ...config, logo: { ...config.logo, url: v } })}
           />
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <NumberField
               label="Width"
               value={config.logo.width}
               onChange={(v) => setConfig({ ...config, logo: { ...config.logo, width: v } })}
+            />
+            <NumberField
+              label="Height"
+              value={config.logo.height}
+              onChange={(v) => setConfig({ ...config, logo: { ...config.logo, height: v } })}
             />
             <NumberField
               label="X"
