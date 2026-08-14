@@ -202,7 +202,7 @@ export default function PostGenerator() {
   return (
     <main className="flex flex-col lg:flex-row min-h-screen bg-zinc-950 text-white p-4 sm:p-8 gap-4 sm:gap-8">
       <div className="w-full lg:w-1/2 flex flex-col gap-4 lg:overflow-y-auto lg:max-h-screen px-2 sm:px-4 py-2">
-        <h1 className="text-2xl font-bold">Post Generator Config</h1>
+        <h1 className="text-2xl font-bold text-center lg:text-left">IG Post Generator</h1>
 
         <div>
           <h2 className="text-lg font-semibold mb-2">Presets</h2>
