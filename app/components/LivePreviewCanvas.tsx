@@ -262,7 +262,7 @@ export function LivePreviewCanvas({ config }: { config: GraphicConfig }) {
   return (
     <canvas
       ref={canvasRef}
-      className="max-h-[750px] max-w-full rounded shadow-lg"
+      className="max-h-[70vh] lg:max-h-[750px] max-w-full rounded shadow-lg"
       style={{ aspectRatio: `${config.canvasWidth} / ${config.canvasHeight}` }}
     />
   );

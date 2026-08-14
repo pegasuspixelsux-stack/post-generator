@@ -200,8 +200,8 @@ export default function PostGenerator() {
   };
 
   return (
-    <main className="flex min-h-screen bg-zinc-950 text-white p-8 gap-8">
-      <div className="w-1/2 flex flex-col gap-4 overflow-y-auto max-h-screen px-4 py-2">
+    <main className="flex flex-col lg:flex-row min-h-screen bg-zinc-950 text-white p-4 sm:p-8 gap-4 sm:gap-8">
+      <div className="w-full lg:w-1/2 flex flex-col gap-4 lg:overflow-y-auto lg:max-h-screen px-2 sm:px-4 py-2">
         <h1 className="text-2xl font-bold">Post Generator Config</h1>
 
         <div>
@@ -413,7 +413,7 @@ export default function PostGenerator() {
         {recentAssets.filter((a) => !a.filename.endsWith('.mp4')).length > 0 && (
           <div className="mt-4">
             <h2 className="text-lg font-semibold mb-2">Recent Generations</h2>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {recentAssets
                 .filter((a) => !a.filename.endsWith('.mp4'))
                 .map((asset) => (
@@ -431,10 +431,16 @@ export default function PostGenerator() {
         )}
       </div>
 
-      <div className="w-1/2 flex flex-col items-center justify-center gap-4 bg-zinc-900 border border-zinc-800 rounded p-4">
+      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center gap-4 bg-zinc-900 border border-zinc-800 rounded p-4">
         {videoUrl ? (
           <>
-            <video src={videoUrl} controls autoPlay loop className="max-h-[750px] object-contain shadow-lg" />
+            <video
+              src={videoUrl}
+              controls
+              autoPlay
+              loop
+              className="max-h-[70vh] lg:max-h-[750px] w-full object-contain shadow-lg"
+            />
             <a
               href={videoUrl}
               download={`post-${nextId('download')}.mp4`}
@@ -446,7 +452,11 @@ export default function PostGenerator() {
         ) : imageUrl ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element -- object URL from a Blob, not a next/image-compatible source */}
-            <img src={imageUrl} alt="Generated Preview" className="max-h-[750px] object-contain shadow-lg" />
+            <img
+              src={imageUrl}
+              alt="Generated Preview"
+              className="max-h-[70vh] lg:max-h-[750px] w-full object-contain shadow-lg"
+            />
             <a
               href={imageUrl}
               download={`post-${nextId('download')}.${generatedFormat === 'jpeg' ? 'jpg' : generatedFormat}`}
