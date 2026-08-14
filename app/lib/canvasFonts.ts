@@ -9,6 +9,7 @@ const FONT_FILES: Record<string, { regular: string; bold?: string }> = {
   BebasNeue: { regular: '/fonts/BebasNeue-Regular.ttf' },
   Anton: { regular: '/fonts/Anton-Regular.ttf' },
   Lobster: { regular: '/fonts/Lobster-Regular.ttf' },
+  BubblegumSans: { regular: '/fonts/BubblegumSans-Regular.ttf' },
 };
 
 let loadPromise: Promise<void> | null = null;

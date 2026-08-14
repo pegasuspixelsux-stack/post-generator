@@ -25,6 +25,7 @@ _DISPLAY_NAME_OVERRIDES = {
     "PTSerif": "PT Serif",
     "BebasNeue": "Bebas Neue",
     "DMSerifDisplay": "DM Serif Display",
+    "BubblegumSans": "Bubblegum Sans",
 }
 
 _FILENAME_RE = re.compile(r"^(?P<family>.+)-(?P<weight>Regular|Bold)\.ttf$", re.IGNORECASE)
