@@ -26,6 +26,8 @@ export const presets: Preset[] = [
       richLines: [
         {
           id: nextId('line'),
+          line_spacing: 0,
+          max_width: 0,
           x: 80,
           y: 350,
           spans: [
@@ -35,6 +37,8 @@ export const presets: Preset[] = [
         },
         {
           id: nextId('line'),
+          line_spacing: 0,
+          max_width: 0,
           x: 80,
           y: 430,
           spans: [
@@ -61,6 +65,8 @@ export const presets: Preset[] = [
       richLines: [
         {
           id: nextId('line'),
+          line_spacing: 0,
+          max_width: 0,
           x: 80,
           y: 800,
           spans: [
@@ -70,6 +76,8 @@ export const presets: Preset[] = [
         },
         {
           id: nextId('line'),
+          line_spacing: 0,
+          max_width: 0,
           x: 80,
           y: 890,
           spans: [
@@ -96,6 +104,8 @@ export const presets: Preset[] = [
       richLines: [
         {
           id: nextId('line'),
+          line_spacing: 0,
+          max_width: 0,
           x: 80,
           y: 1550,
           spans: [
@@ -105,6 +115,8 @@ export const presets: Preset[] = [
         },
         {
           id: nextId('line'),
+          line_spacing: 0,
+          max_width: 0,
           x: 80,
           y: 1650,
           spans: [

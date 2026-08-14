@@ -1,8 +1,48 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { GraphicConfig } from '../lib/types';
+import { GraphicConfig, RichLine, TextSpan } from '../lib/types';
 import { canvasFontFamily, ensureCanvasFontsLoaded } from '../lib/canvasFonts';
+
+/** Mirrors the backend's _draw_wrapped_line: tokenize every span's text
+ * into words (each keeping its own span's style) and pack them left-to-
+ * right, wrapping to a new row whenever the next word would cross
+ * line.x + max_width. */
+function drawWrappedLine(ctx: CanvasRenderingContext2D, line: RichLine) {
+  const words: { text: string; span: TextSpan }[] = [];
+  for (const span of line.spans) {
+    for (const word of span.text.split(' ')) {
+      if (word) words.push({ text: word, span });
+    }
+  }
+  if (words.length === 0) return;
+
+  const rowHeight =
+    line.line_spacing > 0 ? line.line_spacing : Math.round(Math.max(...line.spans.map((s) => s.font_size)) * 1.2);
+
+  const fontOf = (span: TextSpan) => `${span.bold ? 'bold ' : ''}${span.font_size}px "${canvasFontFamily(span.font_family)}"`;
+
+  let cursorX = line.x;
+  let cursorY = line.y;
+  let rowStart = true;
+
+  for (const { text, span } of words) {
+    ctx.font = fontOf(span);
+    const wordWidth = ctx.measureText(text).width;
+
+    if (!rowStart && cursorX + wordWidth > line.x + line.max_width) {
+      cursorY += rowHeight;
+      cursorX = line.x;
+      rowStart = true;
+    }
+
+    ctx.fillStyle = span.color;
+    ctx.fillText(text, cursorX, cursorY);
+    const spaceWidth = ctx.measureText(' ').width;
+    cursorX += wordWidth + spaceWidth;
+    rowStart = false;
+  }
+}
 
 // Approximate client-side mirror of backend/app/rendering.py, drawn on a
 // <canvas> so edits show up instantly without a server round-trip. It's not
@@ -158,6 +198,21 @@ async function draw(canvas: HTMLCanvasElement, config: GraphicConfig, isCancelle
 
   ctx.textBaseline = 'top';
   for (const line of config.richLines) {
+    if (line.max_width > 0) {
+      drawWrappedLine(ctx, line);
+      continue;
+    }
+    if (line.line_spacing > 0) {
+      // Vertical stack: each span on its own row, left-aligned at line.x.
+      line.spans.forEach((span, i) => {
+        if (!span.text) return;
+        const family = canvasFontFamily(span.font_family);
+        ctx.font = `${span.bold ? 'bold ' : ''}${span.font_size}px "${family}"`;
+        ctx.fillStyle = span.color;
+        ctx.fillText(span.text, line.x, line.y + i * line.line_spacing);
+      });
+      continue;
+    }
     let cursorX = line.x;
     for (const span of line.spans) {
       if (!span.text) continue;

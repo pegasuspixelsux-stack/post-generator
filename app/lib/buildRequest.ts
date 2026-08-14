@@ -52,6 +52,8 @@ export function buildGenerateRequestBody(
     rich_lines: config.richLines.map((line) => ({
       x: Number(line.x),
       y: Number(line.y),
+      line_spacing: Number(line.line_spacing),
+      max_width: Number(line.max_width),
       spans: line.spans.map((span) => ({
         text: span.text,
         font_size: Number(span.font_size),

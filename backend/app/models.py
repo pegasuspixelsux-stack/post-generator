@@ -48,13 +48,25 @@ class TextSpan(BaseModel):
 
 
 class RichLine(BaseModel):
-    """A single line of text made of one or more styled spans, rendered
-    left-to-right starting at (x, y) with each span advancing the cursor."""
+    """A block of styled text spans starting at (x, y).
+
+    Three layout modes, in priority order:
+    - max_width > 0: word-wrap. All spans' text is tokenized into words
+      (each keeping its own span's font/color/bold) and greedily packed
+      across multiple rows so no row exceeds max_width px, wrapping to a
+      new row (line_spacing px lower, or an auto default) as needed —
+      like a normal paragraph.
+    - else, line_spacing > 0: each span gets its own row, line_spacing px
+      apart, all left-aligned at x.
+    - else (both 0, the default): spans render inline, left-to-right, each
+      one advancing the cursor — e.g. two differently-colored words on one
+      headline."""
 
     x: int
     y: int
     spans: List[TextSpan] = Field(default_factory=list)
-    line_spacing: int = 0  # reserved for future multi-line-per-block support
+    line_spacing: int = 0
+    max_width: int = 0
 
 
 class LineShape(BaseModel):

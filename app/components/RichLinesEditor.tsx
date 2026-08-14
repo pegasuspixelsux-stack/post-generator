@@ -34,8 +34,28 @@ export function RichLinesEditor({
 
   const handleAlign = async (line: RichLine, align: Align) => {
     const padding = paddingByLine[line.id] ?? DEFAULT_PADDING;
-    const width = await measureLineWidth(line.spans);
+    // Wrapping aligns the paragraph box itself (max_width); otherwise the
+    // actual measured text width (summed if inline, widest row if stacked).
+    const width =
+      line.max_width > 0 ? line.max_width : await measureLineWidth(line.spans, line.line_spacing > 0);
     updateLine(line.id, { x: alignedX(align, canvasWidth, width, padding) });
+  };
+
+  type Layout = 'inline' | 'stacked' | 'wrap';
+  const layoutOf = (line: RichLine): Layout => (line.max_width > 0 ? 'wrap' : line.line_spacing > 0 ? 'stacked' : 'inline');
+  const setLayout = (line: RichLine, layout: Layout) => {
+    const maxSize = Math.max(40, ...line.spans.map((s) => s.font_size));
+    const defaultSpacing = Math.round(maxSize * 1.2);
+    if (layout === 'inline') {
+      updateLine(line.id, { max_width: 0, line_spacing: 0 });
+    } else if (layout === 'stacked') {
+      updateLine(line.id, { max_width: 0, line_spacing: line.line_spacing > 0 ? line.line_spacing : defaultSpacing });
+    } else {
+      updateLine(line.id, {
+        max_width: line.max_width > 0 ? line.max_width : Math.round(canvasWidth * 0.8),
+        line_spacing: line.line_spacing > 0 ? line.line_spacing : defaultSpacing,
+      });
+    }
   };
 
   const addLine = () => {
@@ -45,6 +65,8 @@ export function RichLinesEditor({
         id: nextId('line'),
         x: 80,
         y: 350 + lines.length * 80,
+        line_spacing: 0,
+        max_width: 0,
         spans: [{ id: nextId('span'), text: 'New text', font_size: 44, color: '#ffffff', bold: true, font_family: defaultFont }],
       },
     ]);
@@ -70,6 +92,52 @@ export function RichLinesEditor({
             onPaddingChange={(v) => setPaddingByLine((prev) => ({ ...prev, [line.id]: v }))}
             onAlign={(align) => void handleAlign(line, align)}
           />
+
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-1">
+              {(
+                [
+                  ['inline', 'Inline'],
+                  ['stacked', 'Stacked'],
+                  ['wrap', 'Wrap'],
+                ] as [Layout, string][]
+              ).map(([layout, label]) => (
+                <button
+                  key={layout}
+                  type="button"
+                  onClick={() => setLayout(line, layout)}
+                  className={`text-xs rounded px-2 py-2 transition ${
+                    layoutOf(line) === layout
+                      ? 'bg-amber-500 text-black font-semibold'
+                      : 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:border-amber-500 hover:text-amber-500'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {layoutOf(line) === 'wrap' && (
+              <div className="grid grid-cols-2 gap-2">
+                <NumberField
+                  label="Max width (px)"
+                  value={line.max_width}
+                  onChange={(v) => updateLine(line.id, { max_width: v })}
+                />
+                <NumberField
+                  label="Row spacing (px)"
+                  value={line.line_spacing}
+                  onChange={(v) => updateLine(line.id, { line_spacing: v })}
+                />
+              </div>
+            )}
+            {layoutOf(line) === 'stacked' && (
+              <NumberField
+                label="Row spacing (px)"
+                value={line.line_spacing}
+                onChange={(v) => updateLine(line.id, { line_spacing: v })}
+              />
+            )}
+          </div>
 
           <div className="flex flex-col gap-2">
             {line.spans.map((span, spanIdx) => (

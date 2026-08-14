@@ -9,7 +9,16 @@ import requests
 from PIL import Image, ImageDraw, ImageOps
 
 from .fonts import get_font
-from .models import GenerateGraphicRequest, ImageBlock, LineShape, LogoConfig, OverlayConfig, RichLine, WordArtConfig
+from .models import (
+    GenerateGraphicRequest,
+    ImageBlock,
+    LineShape,
+    LogoConfig,
+    OverlayConfig,
+    RichLine,
+    TextSpan,
+    WordArtConfig,
+)
 
 logger = logging.getLogger("post_generator.rendering")
 
@@ -150,7 +159,66 @@ def _draw_lines(draw: ImageDraw.ImageDraw, lines: list[LineShape]) -> None:
         _draw_line_shape(draw, line)
 
 
+def _draw_wrapped_line(draw: ImageDraw.ImageDraw, line: RichLine) -> None:
+    """Greedy word-wrap: tokenize every span's text into words (each word
+    keeping its own span's style) and pack them left-to-right, wrapping to
+    a new row whenever the next word would cross line.x + max_width."""
+    words: list[tuple[str, TextSpan]] = []
+    for span in line.spans:
+        for word in span.text.split(" "):
+            if word:
+                words.append((word, span))
+    if not words:
+        return
+
+    row_height = line.line_spacing if line.line_spacing > 0 else round(max(s.font_size for s in line.spans) * 1.2)
+
+    space_width_cache: dict[tuple, int] = {}
+
+    def space_width(span: TextSpan) -> int:
+        key = (span.font_size, span.bold, span.font_family)
+        if key not in space_width_cache:
+            font = get_font(span.font_size, bold=span.bold, family=span.font_family)
+            bbox = draw.textbbox((0, 0), " ", font=font)
+            space_width_cache[key] = bbox[2] - bbox[0]
+        return space_width_cache[key]
+
+    cursor_x = line.x
+    cursor_y = line.y
+    row_start = True
+
+    for word, span in words:
+        font = get_font(span.font_size, bold=span.bold, family=span.font_family)
+        bbox = draw.textbbox((0, 0), word, font=font)
+        word_width = bbox[2] - bbox[0]
+
+        if not row_start and cursor_x + word_width > line.x + line.max_width:
+            cursor_y += row_height
+            cursor_x = line.x
+            row_start = True
+
+        draw.text((cursor_x, cursor_y), word, font=font, fill=tuple(span.color))
+        cursor_x += word_width + space_width(span)
+        row_start = False
+
+
 def _draw_rich_line(draw: ImageDraw.ImageDraw, line: RichLine) -> None:
+    if line.max_width > 0:
+        _draw_wrapped_line(draw, line)
+        return
+
+    if line.line_spacing > 0:
+        # Vertical stack: each span gets its own row, line_spacing px apart,
+        # all left-aligned at line.x (no horizontal cursor advance).
+        for i, span in enumerate(line.spans):
+            if not span.text:
+                continue
+            font = get_font(span.font_size, bold=span.bold, family=span.font_family)
+            color = tuple(span.color)
+            draw.text((line.x, line.y + i * line.line_spacing), span.text, font=font, fill=color)
+        return
+
+    # Default: spans render inline on one row, left-to-right.
     cursor_x = line.x
     for span in line.spans:
         if not span.text:

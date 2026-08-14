@@ -37,6 +37,8 @@ export interface RichLine {
   x: number;
   y: number;
   spans: TextSpan[];
+  line_spacing: number; // 0 = spans render inline (default); >0 = stacked, one span per row, this many px apart
+  max_width: number; // 0 = no wrap (default); >0 = word-wrap all spans' text within this px width, flowing onto new rows
 }
 
 export type OverlayDirection = 'top' | 'bottom' | 'left' | 'right' | 'radial';
