@@ -1,5 +1,7 @@
 'use client';
 
+import { AnimationType } from '../lib/types';
+
 const inputClass = 'bg-zinc-900 border border-zinc-800 p-2 rounded w-full text-sm';
 
 export function TextField({
@@ -167,6 +169,47 @@ export function AlignRow({
         ))}
       </div>
       <NumberField label="Padding (px)" value={padding} onChange={onPaddingChange} />
+    </div>
+  );
+}
+
+const ANIMATION_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'slide-left', label: 'Slide from left' },
+  { value: 'slide-right', label: 'Slide from right' },
+  { value: 'slide-up', label: 'Slide from bottom' },
+  { value: 'slide-down', label: 'Slide from top' },
+  { value: 'fade', label: 'Fade in' },
+];
+
+/** Video-export entrance animation controls (type, speed/duration, delay) —
+ * ignored for static image generation. Shared by Logo, Word Art, and each
+ * Rich Text Line, all of which extend AnimationFields. */
+export function AnimationFieldsRow({
+  animation,
+  duration,
+  delay,
+  onChange,
+}: {
+  animation: AnimationType;
+  duration: number;
+  delay: number;
+  onChange: (patch: { animation?: AnimationType; animation_duration?: number; animation_delay?: number }) => void;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2 items-end">
+      <SelectField
+        label="Animation (video)"
+        value={animation}
+        options={ANIMATION_OPTIONS}
+        onChange={(v) => onChange({ animation: v as AnimationType })}
+      />
+      <NumberField
+        label="Duration (s)"
+        value={duration}
+        onChange={(v) => onChange({ animation_duration: v })}
+      />
+      <NumberField label="Delay (s)" value={delay} onChange={(v) => onChange({ animation_delay: v })} />
     </div>
   );
 }

@@ -3,7 +3,6 @@
 import { useRef, useState } from 'react';
 import { RichLine } from '../lib/types';
 import { uploadImage } from '../lib/upload';
-import { SelectField } from './fields';
 
 function parseLines(raw: string): string[] {
   return raw
@@ -11,6 +10,8 @@ function parseLines(raw: string): string[] {
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
 }
+
+export type TargetField = [number, number]; // [lineIndex, spanIndex]
 
 export function BulkCreatePanel({
   richLines,
@@ -23,25 +24,41 @@ export function BulkCreatePanel({
   loading: boolean;
   error: string | null;
   zipUrl: string | null;
-  onGenerate: (images: string[], texts: string[], targetLine: number, targetSpan: number) => void;
+  onGenerate: (images: string[], itemTexts: string[][], targetFields: TargetField[]) => void;
 }) {
   const [imagesText, setImagesText] = useState('');
   const [textsText, setTextsText] = useState('');
-  const [target, setTarget] = useState('0:0');
   const [uploading, setUploading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const txtInputRef = useRef<HTMLInputElement>(null);
 
-  const targetOptions = richLines.flatMap((line, li) =>
+  const allFields: { field: TargetField; label: string }[] = richLines.flatMap((line, li) =>
     line.spans.map((span, si) => ({
-      value: `${li}:${si}`,
-      label: `Line ${li + 1} · Span ${si + 1}: "${span.text.slice(0, 24)}"`,
+      field: [li, si] as TargetField,
+      label: `Line ${li + 1} · Span ${si + 1}: "${span.text.slice(0, 20)}"`,
     })),
   );
+  const fieldKey = (f: TargetField) => `${f[0]}:${f[1]}`;
+
+  // Every field is included by default — a bulk run's whole point is
+  // "same logo/styles, only the text changes", so nothing is opted out
+  // unless the user deliberately unchecks it.
+  const [uncheckedKeys, setUncheckedKeys] = useState<Set<string>>(new Set());
+  const selectedFields = allFields.filter((f) => !uncheckedKeys.has(fieldKey(f.field))).map((f) => f.field);
+  const toggleField = (key: string) =>
+    setUncheckedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const images = parseLines(imagesText);
-  const texts = parseLines(textsText);
+  const rows = parseLines(textsText);
+  // Each row is one item; when more than one field is selected, its columns
+  // are "|"-delimited in field order (Line 1 Span 1 | Line 2 Span 1 | ...).
+  const itemTexts = rows.map((row) => row.split('|').map((cell) => cell.trim()));
 
   const handleImageFiles = async (files: FileList) => {
     setUploading(true);
@@ -66,23 +83,19 @@ export function BulkCreatePanel({
 
   const handleSubmit = () => {
     setLocalError(null);
-    if (images.length === 0 && texts.length === 0) {
+    if (images.length === 0 && itemTexts.length === 0) {
       setLocalError('Add at least one image URL or one line of text.');
       return;
     }
-    if (targetOptions.length > 0 && texts.length > 0) {
-      const [li, si] = target.split(':').map(Number);
-      onGenerate(images, texts, li, si);
-    } else {
-      onGenerate(images, texts, 0, 0);
-    }
+    onGenerate(images, itemTexts, selectedFields);
   };
 
   return (
     <div className="flex flex-col gap-3 border border-zinc-800 rounded p-3">
       <p className="text-xs text-zinc-500">
-        Uses the current form above as the template. Provide images and/or a line of text per
-        graphic — they&rsquo;re paired by order to produce one output per row, all zipped together.
+        Uses the current form above as the template — logo, images, colors, and positions stay identical for every
+        item; only the text changes. Provide images and/or one row of text per graphic — rows are paired by order
+        to produce one output per row, all zipped together.
       </p>
 
       <div className="flex flex-col gap-1">
@@ -116,9 +129,32 @@ export function BulkCreatePanel({
         />
       </div>
 
+      {allFields.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <span className="text-sm text-zinc-400">Text fields to override (unchecked ones keep the preset text)</span>
+          <div className="flex flex-col gap-1 bg-zinc-950 border border-zinc-800 rounded p-2">
+            {allFields.map(({ field, label }) => {
+              const key = fieldKey(field);
+              return (
+                <label key={key} className="flex items-center gap-2 text-xs text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={!uncheckedKeys.has(key)}
+                    onChange={() => toggleField(key)}
+                  />
+                  {label}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-zinc-400">Text lines (one per graphic)</span>
+          <span className="text-sm text-zinc-400">
+            Text rows (one per graphic{selectedFields.length > 1 ? `, "|"-separated per field above` : ''})
+          </span>
           <button
             type="button"
             onClick={() => txtInputRef.current?.click()}
@@ -140,25 +176,20 @@ export function BulkCreatePanel({
         </div>
         <textarea
           className="bg-zinc-900 border border-zinc-800 p-2 rounded w-full text-sm h-24 font-mono"
-          placeholder={'Almuerzo Lunes\nAlmuerzo Martes\nAlmuerzo Miércoles'}
+          placeholder={
+            selectedFields.length > 1
+              ? 'Almuerzo Lunes|Desde $9.99\nAlmuerzo Martes|Desde $10.99'
+              : 'Almuerzo Lunes\nAlmuerzo Martes\nAlmuerzo Miércoles'
+          }
           value={textsText}
           onChange={(e) => setTextsText(e.target.value)}
         />
       </div>
 
-      {targetOptions.length > 0 && (
-        <SelectField
-          label="Replace text in"
-          value={target}
-          options={targetOptions}
-          onChange={setTarget}
-        />
-      )}
-
       <div className="text-xs text-zinc-500">
-        {images.length} image{images.length === 1 ? '' : 's'} · {texts.length} text line
-        {texts.length === 1 ? '' : 's'} → {Math.max(images.length, texts.length)} graphic
-        {Math.max(images.length, texts.length) === 1 ? '' : 's'}
+        {images.length} image{images.length === 1 ? '' : 's'} · {rows.length} text row{rows.length === 1 ? '' : 's'} ·{' '}
+        {selectedFields.length} field{selectedFields.length === 1 ? '' : 's'} per row →{' '}
+        {Math.max(images.length, rows.length)} graphic{Math.max(images.length, rows.length) === 1 ? '' : 's'}
       </div>
 
       <button

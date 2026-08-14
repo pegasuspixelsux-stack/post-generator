@@ -1,4 +1,4 @@
-import { GraphicConfig } from './types';
+import { DEFAULT_ANIMATION, GraphicConfig } from './types';
 import { nextId } from './color';
 
 export interface Preset {
@@ -19,15 +19,16 @@ export const presets: Preset[] = [
       backgroundImageUrl: 'https://picsum.photos/seed/dailymenu/1080/1920',
       backgroundColor: '#18181b',
       overlay: { type: 'solid', color: '#000000', opacity: 0.35, color2: '#000000', opacity2: 0, direction: 'bottom' },
-      logo: { url: 'https://placehold.co/200x100/png?text=LOGO', x: 80, y: 80, width: 200, height: 100 },
+      logo: { url: 'https://placehold.co/200x100/png?text=LOGO', x: 80, y: 80, width: 200, height: 100, ...DEFAULT_ANIMATION },
       secondaryImages: [],
       lines: [],
-      wordart: { url: '', x: 340, y: 700, width: 400, height: 400 },
+      wordart: { url: '', x: 340, y: 700, width: 400, height: 400, ...DEFAULT_ANIMATION },
       richLines: [
         {
           id: nextId('line'),
           line_spacing: 0,
           max_width: 0,
+          ...DEFAULT_ANIMATION,
           x: 80,
           y: 350,
           spans: [
@@ -39,6 +40,7 @@ export const presets: Preset[] = [
           id: nextId('line'),
           line_spacing: 0,
           max_width: 0,
+          ...DEFAULT_ANIMATION,
           x: 80,
           y: 430,
           spans: [
@@ -58,15 +60,16 @@ export const presets: Preset[] = [
       backgroundImageUrl: 'https://picsum.photos/seed/announcement/1080/1920',
       backgroundColor: '#0f172a',
       overlay: { type: 'solid', color: '#000000', opacity: 0.55, color2: '#000000', opacity2: 0, direction: 'bottom' },
-      logo: { url: 'https://placehold.co/200x100/png?text=LOGO', x: 80, y: 80, width: 200, height: 100 },
+      logo: { url: 'https://placehold.co/200x100/png?text=LOGO', x: 80, y: 80, width: 200, height: 100, ...DEFAULT_ANIMATION },
       secondaryImages: [],
       lines: [],
-      wordart: { url: '', x: 340, y: 700, width: 400, height: 400 },
+      wordart: { url: '', x: 340, y: 700, width: 400, height: 400, ...DEFAULT_ANIMATION },
       richLines: [
         {
           id: nextId('line'),
           line_spacing: 0,
           max_width: 0,
+          ...DEFAULT_ANIMATION,
           x: 80,
           y: 800,
           spans: [
@@ -78,6 +81,7 @@ export const presets: Preset[] = [
           id: nextId('line'),
           line_spacing: 0,
           max_width: 0,
+          ...DEFAULT_ANIMATION,
           x: 80,
           y: 890,
           spans: [
@@ -97,15 +101,16 @@ export const presets: Preset[] = [
       backgroundImageUrl: 'https://picsum.photos/seed/eventflyer/1080/1920',
       backgroundColor: '#1c1917',
       overlay: { type: 'gradient', color: '#000000', opacity: 0.75, color2: '#000000', opacity2: 0, direction: 'bottom' },
-      logo: { url: 'https://placehold.co/200x100/png?text=LOGO', x: 80, y: 80, width: 200, height: 100 },
+      logo: { url: 'https://placehold.co/200x100/png?text=LOGO', x: 80, y: 80, width: 200, height: 100, ...DEFAULT_ANIMATION },
       secondaryImages: [],
       lines: [],
-      wordart: { url: '', x: 340, y: 700, width: 400, height: 400 },
+      wordart: { url: '', x: 340, y: 700, width: 400, height: 400, ...DEFAULT_ANIMATION },
       richLines: [
         {
           id: nextId('line'),
           line_spacing: 0,
           max_width: 0,
+          ...DEFAULT_ANIMATION,
           x: 80,
           y: 1550,
           spans: [
@@ -117,6 +122,7 @@ export const presets: Preset[] = [
           id: nextId('line'),
           line_spacing: 0,
           max_width: 0,
+          ...DEFAULT_ANIMATION,
           x: 80,
           y: 1650,
           spans: [

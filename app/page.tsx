@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { FontFamily, GraphicConfig } from './lib/types';
 import { nextId } from './lib/color';
 import { presets } from './lib/presets';
-import { buildGenerateRequestBody, OutputFormat } from './lib/buildRequest';
-import { NumberField, ColorField, SelectField, AlignRow } from './components/fields';
+import { buildGenerateRequestBody, buildVideoRequestBody, OutputFormat, VideoSettings } from './lib/buildRequest';
+import { NumberField, ColorField, SelectField, AlignRow, AnimationFieldsRow } from './components/fields';
 import { alignedX } from './lib/align';
 import { ImageUrlField } from './components/ImageUrlField';
 import { OverlayEditor } from './components/OverlayEditor';
@@ -16,7 +16,7 @@ import { LinesEditor } from './components/LinesEditor';
 import { PresetSelector } from './components/PresetSelector';
 import { CustomPresetsPanel } from './components/CustomPresetsPanel';
 import { CustomPreset, deleteCustomPreset, loadCustomPresets, saveCustomPreset } from './lib/customPresets';
-import { BulkCreatePanel } from './components/BulkCreatePanel';
+import { BulkCreatePanel, TargetField } from './components/BulkCreatePanel';
 import { LivePreviewCanvas } from './components/LivePreviewCanvas';
 import { apiUrl, resolveAssetUrl } from './lib/api';
 
@@ -40,6 +40,10 @@ export default function PostGenerator() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [logoPadding, setLogoPadding] = useState(80);
+  const [videoSettings, setVideoSettings] = useState<VideoSettings>({ fps: 30, duration: 3, fadeIn: 0, fadeOut: 0 });
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
 
   // Once a real render exists, any further edit falls back to the live
   // preview canvas so the change is visible immediately instead of showing
@@ -51,6 +55,7 @@ export default function PostGenerator() {
       return;
     }
     setImageUrl(null);
+    setVideoUrl(null);
   }, [config]);
 
   const refreshAssets = async () => {
@@ -117,6 +122,7 @@ export default function PostGenerator() {
         throw new Error(detail || 'Failed to generate');
       }
       const blob = await response.blob();
+      setVideoUrl(null);
       setImageUrl(URL.createObjectURL(blob));
       setGeneratedFormat(outputFormat);
       refreshAssets();
@@ -128,20 +134,45 @@ export default function PostGenerator() {
     }
   };
 
+  const handleGenerateVideo = async () => {
+    setVideoLoading(true);
+    setVideoError(null);
+    try {
+      const response = await fetch(apiUrl('/generate-video'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildVideoRequestBody(config, videoSettings, true)),
+      });
+
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(detail || 'Failed to generate video');
+      }
+      const blob = await response.blob();
+      setImageUrl(null);
+      setVideoUrl(URL.createObjectURL(blob));
+      refreshAssets();
+    } catch (err) {
+      console.error(err);
+      setVideoError(err instanceof Error ? err.message : 'Failed to generate video');
+    } finally {
+      setVideoLoading(false);
+    }
+  };
+
   const handleBulkGenerate = async (
     images: string[],
-    texts: string[],
-    targetLine: number,
-    targetSpan: number,
+    itemTexts: string[][],
+    targetFields: TargetField[],
   ) => {
     setBulkLoading(true);
     setBulkError(null);
     setBulkZipUrl(null);
     try {
-      const count = Math.max(images.length, texts.length);
+      const count = Math.max(images.length, itemTexts.length);
       const items = Array.from({ length: count }, (_, i) => ({
         background_image_url: images[i] || null,
-        text: texts[i] ?? null,
+        texts: itemTexts[i] ?? [],
       }));
       const response = await fetch(apiUrl('/generate-graphic/bulk'), {
         method: 'POST',
@@ -149,8 +180,7 @@ export default function PostGenerator() {
         body: JSON.stringify({
           base: buildGenerateRequestBody(config, outputFormat, true),
           items,
-          target_line: targetLine,
-          target_span: targetSpan,
+          target_fields: targetFields,
         }),
       });
 
@@ -249,6 +279,12 @@ export default function PostGenerator() {
               setConfig({ ...config, logo: { ...config.logo, x } });
             }}
           />
+          <AnimationFieldsRow
+            animation={config.logo.animation}
+            duration={config.logo.animation_duration}
+            delay={config.logo.animation_delay}
+            onChange={(patch) => setConfig({ ...config, logo: { ...config.logo, ...patch } })}
+          />
         </div>
 
         <h2 className="text-lg font-semibold mt-4">Secondary Images</h2>
@@ -284,6 +320,12 @@ export default function PostGenerator() {
               onChange={(v) => setConfig({ ...config, wordart: { ...config.wordart, y: v } })}
             />
           </div>
+          <AnimationFieldsRow
+            animation={config.wordart.animation}
+            duration={config.wordart.animation_duration}
+            delay={config.wordart.animation_delay}
+            onChange={(patch) => setConfig({ ...config, wordart: { ...config.wordart, ...patch } })}
+          />
         </div>
 
         <h2 className="text-lg font-semibold mt-4">Rich Text Lines</h2>
@@ -319,6 +361,46 @@ export default function PostGenerator() {
           <p className="text-red-400 text-sm border border-red-900 bg-red-950/40 rounded p-2">{error}</p>
         )}
 
+        <h2 className="text-lg font-semibold mt-4">Video Export (MP4)</h2>
+        <p className="text-xs text-zinc-500">
+          Animates the logo, word art, and each rich text line per their own settings above, then holds. Elements
+          set to &quot;None&quot; stay static the whole clip.
+        </p>
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField
+              label="Duration (s)"
+              value={videoSettings.duration}
+              onChange={(v) => setVideoSettings({ ...videoSettings, duration: v })}
+            />
+            <NumberField
+              label="FPS"
+              value={videoSettings.fps}
+              onChange={(v) => setVideoSettings({ ...videoSettings, fps: v })}
+            />
+            <NumberField
+              label="Fade in (s)"
+              value={videoSettings.fadeIn}
+              onChange={(v) => setVideoSettings({ ...videoSettings, fadeIn: v })}
+            />
+            <NumberField
+              label="Fade out (s)"
+              value={videoSettings.fadeOut}
+              onChange={(v) => setVideoSettings({ ...videoSettings, fadeOut: v })}
+            />
+          </div>
+          <button
+            onClick={handleGenerateVideo}
+            disabled={videoLoading}
+            className="bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-black font-bold p-3 rounded transition"
+          >
+            {videoLoading ? 'Rendering video...' : 'Export Video (MP4)'}
+          </button>
+          {videoError && (
+            <p className="text-red-400 text-sm border border-red-900 bg-red-950/40 rounded p-2">{videoError}</p>
+          )}
+        </div>
+
         <h2 className="text-lg font-semibold mt-4">Bulk Create</h2>
         <BulkCreatePanel
           richLines={config.richLines}
@@ -328,11 +410,13 @@ export default function PostGenerator() {
           onGenerate={handleBulkGenerate}
         />
 
-        {recentAssets.length > 0 && (
+        {recentAssets.filter((a) => !a.filename.endsWith('.mp4')).length > 0 && (
           <div className="mt-4">
             <h2 className="text-lg font-semibold mb-2">Recent Generations</h2>
             <div className="grid grid-cols-4 gap-2">
-              {recentAssets.map((asset) => (
+              {recentAssets
+                .filter((a) => !a.filename.endsWith('.mp4'))
+                .map((asset) => (
                 <a key={asset.filename} href={resolveAssetUrl(asset.url)} target="_blank" rel="noreferrer">
                   {/* eslint-disable-next-line @next/next/no-img-element -- served from a local FastAPI backend or Vercel Blob, not next/image's remote loader */}
                   <img
@@ -348,7 +432,18 @@ export default function PostGenerator() {
       </div>
 
       <div className="w-1/2 flex flex-col items-center justify-center gap-4 bg-zinc-900 border border-zinc-800 rounded p-4">
-        {imageUrl ? (
+        {videoUrl ? (
+          <>
+            <video src={videoUrl} controls autoPlay loop className="max-h-[750px] object-contain shadow-lg" />
+            <a
+              href={videoUrl}
+              download={`post-${nextId('download')}.mp4`}
+              className="bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-semibold px-4 py-2 rounded transition"
+            >
+              Download MP4
+            </a>
+          </>
+        ) : imageUrl ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element -- object URL from a Blob, not a next/image-compatible source */}
             <img src={imageUrl} alt="Generated Preview" className="max-h-[750px] object-contain shadow-lg" />

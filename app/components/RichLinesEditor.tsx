@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { FontFamily, RichLine } from '../lib/types';
+import { DEFAULT_ANIMATION, FontFamily, RichLine } from '../lib/types';
 import { nextId } from '../lib/color';
 import { alignedX, Align } from '../lib/align';
 import { measureLineWidth } from '../lib/measureText';
-import { AddButton, AlignRow, CheckboxField, ColorField, NumberField, RemoveButton, SelectField, TextField } from './fields';
+import { AddButton, AlignRow, AnimationFieldsRow, CheckboxField, ColorField, NumberField, RemoveButton, SelectField, TextField } from './fields';
 
 const FALLBACK_FONTS: FontFamily[] = [{ id: 'Poppins', name: 'Poppins', has_bold: true }];
 const DEFAULT_PADDING = 80;
@@ -67,6 +67,7 @@ export function RichLinesEditor({
         y: 350 + lines.length * 80,
         line_spacing: 0,
         max_width: 0,
+        ...DEFAULT_ANIMATION,
         spans: [{ id: nextId('span'), text: 'New text', font_size: 44, color: '#ffffff', bold: true, font_family: defaultFont }],
       },
     ]);
@@ -91,6 +92,12 @@ export function RichLinesEditor({
             padding={paddingByLine[line.id] ?? DEFAULT_PADDING}
             onPaddingChange={(v) => setPaddingByLine((prev) => ({ ...prev, [line.id]: v }))}
             onAlign={(align) => void handleAlign(line, align)}
+          />
+          <AnimationFieldsRow
+            animation={line.animation}
+            duration={line.animation_duration}
+            delay={line.animation_delay}
+            onChange={(patch) => updateLine(line.id, patch)}
           />
 
           <div className="flex flex-col gap-2">

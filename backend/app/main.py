@@ -14,9 +14,10 @@ from fastapi.staticfiles import StaticFiles
 from . import blob as blob_store
 from .bulk import MAX_BULK_ITEMS, BulkGenerateRequest, render_bulk
 from .fonts import list_families
-from .models import GenerateGraphicRequest
+from .models import GenerateGraphicRequest, VideoRequest
 from .persist import persist_generated
 from .rendering import OUTPUT_FORMATS, render_graphic
+from .video import render_video
 
 logging.basicConfig(level=logging.INFO)
 
@@ -150,6 +151,20 @@ def generate_graphic_bulk(req: BulkGenerateRequest) -> Response:
         media_type="application/zip",
         headers={"Content-Disposition": "attachment; filename=bulk-graphics.zip"},
     )
+
+
+@api.post("/generate-video")
+def generate_video(req: VideoRequest) -> Response:
+    try:
+        video_bytes = render_video(req)
+    except Exception as exc:  # noqa: BLE001 - surface a clean 500 to the client
+        logging.getLogger("post_generator.api").exception("Failed to render video")
+        raise HTTPException(status_code=500, detail=f"Failed to render video: {exc}") from exc
+
+    if req.persist:
+        persist_generated(video_bytes, "video/mp4", "mp4", GENERATED_DIR)
+
+    return Response(content=video_bytes, media_type="video/mp4")
 
 
 @api.get("/assets")

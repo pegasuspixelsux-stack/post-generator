@@ -29,6 +29,9 @@ export function buildGenerateRequestBody(
           y: Number(config.logo.y),
           width: Number(config.logo.width),
           height: Number(config.logo.height),
+          animation: config.logo.animation,
+          animation_duration: Number(config.logo.animation_duration),
+          animation_delay: Number(config.logo.animation_delay),
         }
       : null,
     secondary_images: config.secondaryImages
@@ -54,6 +57,9 @@ export function buildGenerateRequestBody(
       y: Number(line.y),
       line_spacing: Number(line.line_spacing),
       max_width: Number(line.max_width),
+      animation: line.animation,
+      animation_duration: Number(line.animation_duration),
+      animation_delay: Number(line.animation_delay),
       spans: line.spans.map((span) => ({
         text: span.text,
         font_size: Number(span.font_size),
@@ -69,9 +75,33 @@ export function buildGenerateRequestBody(
           y: Number(config.wordart.y),
           width: Number(config.wordart.width),
           height: Number(config.wordart.height),
+          animation: config.wordart.animation,
+          animation_duration: Number(config.wordart.animation_duration),
+          animation_delay: Number(config.wordart.animation_delay),
         }
       : null,
     output_format: outputFormat,
+    persist,
+  };
+}
+
+export interface VideoSettings {
+  fps: number;
+  duration: number;
+  fadeIn: number;
+  fadeOut: number;
+}
+
+/** Shape matches the backend's VideoRequest (backend/app/models.py). Video
+ * always renders as PNG-quality RGBA internally, so output_format on the
+ * base request is irrelevant — pass "png" for a harmless default. */
+export function buildVideoRequestBody(config: GraphicConfig, video: VideoSettings, persist: boolean) {
+  return {
+    base: buildGenerateRequestBody(config, 'png', false),
+    fps: Number(video.fps),
+    duration: Number(video.duration),
+    fade_in: Number(video.fadeIn),
+    fade_out: Number(video.fadeOut),
     persist,
   };
 }

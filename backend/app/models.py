@@ -8,9 +8,21 @@ from pydantic import BaseModel, Field
 RGBColor = Tuple[int, int, int]
 OverlayDirection = Literal["top", "bottom", "left", "right", "radial"]
 OutputFormat = Literal["jpeg", "png", "webp"]
+AnimationType = Literal["none", "slide-left", "slide-right", "slide-up", "slide-down", "fade"]
 
 
-class LogoConfig(BaseModel):
+class AnimationMixin(BaseModel):
+    """Entrance animation for a video export (backend/app/video.py). Ignored
+    for static image generation. The element is fully settled (final
+    position, full opacity) before `animation_delay` and stays settled
+    forever if `animation` is "none"."""
+
+    animation: AnimationType = "none"
+    animation_duration: float = 0.6  # seconds; smaller = faster
+    animation_delay: float = 0.0  # seconds after video start before this element begins animating
+
+
+class LogoConfig(AnimationMixin):
     url: str
     x: int = 0
     y: int = 0
@@ -28,7 +40,7 @@ class ImageBlock(BaseModel):
     height: int = 200
 
 
-class WordArtConfig(BaseModel):
+class WordArtConfig(AnimationMixin):
     """An optional decorative image (e.g. a word-art PNG) placed on top of
     everything else — background, logo, secondary images, and text."""
 
@@ -47,7 +59,7 @@ class TextSpan(BaseModel):
     font_family: str = "Poppins"  # id from GET /fonts; falls back to default if unknown
 
 
-class RichLine(BaseModel):
+class RichLine(AnimationMixin):
     """A block of styled text spans starting at (x, y).
 
     Three layout modes, in priority order:
@@ -114,3 +126,16 @@ class GenerateGraphicRequest(BaseModel):
     wordart: Optional[WordArtConfig] = None  # optional topmost decorative image overlay
     output_format: OutputFormat = "jpeg"
     persist: bool = False  # if true, save the rendered image under /assets for later retrieval
+
+
+class VideoRequest(BaseModel):
+    """An 'animate in, then hold' MP4 export of a graphic. Per-element
+    animation (type/duration/delay) lives on logo/wordart/each rich_line in
+    `base` (see AnimationMixin); this wraps the whole-clip settings."""
+
+    base: GenerateGraphicRequest
+    fps: int = 30
+    duration: float = 3.0  # total clip length, seconds
+    fade_in: float = 0.0  # seconds; whole-frame fade from background_color at clip start
+    fade_out: float = 0.0  # seconds; whole-frame fade to background_color at clip end
+    persist: bool = False  # if true, save the rendered mp4 under /assets for later retrieval

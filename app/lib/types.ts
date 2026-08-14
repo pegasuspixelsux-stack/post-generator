@@ -1,6 +1,22 @@
 // Mirrors the backend's Pydantic models in backend/app/models.py.
 
-export interface LogoConfig {
+// Entrance animation for a video export (POST /generate-video); ignored for
+// static image generation. "none" means the element is always at rest.
+export type AnimationType = 'none' | 'slide-left' | 'slide-right' | 'slide-up' | 'slide-down' | 'fade';
+
+export interface AnimationFields {
+  animation: AnimationType;
+  animation_duration: number; // seconds; smaller = faster
+  animation_delay: number; // seconds after video start before this element begins animating
+}
+
+export const DEFAULT_ANIMATION: AnimationFields = {
+  animation: 'none',
+  animation_duration: 0.6,
+  animation_delay: 0,
+};
+
+export interface LogoConfig extends AnimationFields {
   url: string;
   x: number;
   y: number;
@@ -32,7 +48,7 @@ export interface FontFamily {
   has_bold: boolean;
 }
 
-export interface RichLine {
+export interface RichLine extends AnimationFields {
   id: string; // client-side only
   x: number;
   y: number;
@@ -52,7 +68,7 @@ export interface OverlayConfig {
   direction: OverlayDirection; // gradient only; anchor placement
 }
 
-export interface WordArtConfig {
+export interface WordArtConfig extends AnimationFields {
   url: string; // optional — omitted (empty) means no word art is rendered
   x: number;
   y: number;

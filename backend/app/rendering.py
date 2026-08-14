@@ -159,10 +159,24 @@ def _draw_lines(draw: ImageDraw.ImageDraw, lines: list[LineShape]) -> None:
         _draw_line_shape(draw, line)
 
 
-def _draw_wrapped_line(draw: ImageDraw.ImageDraw, line: RichLine) -> None:
+def _draw_wrapped_line(
+    draw: ImageDraw.ImageDraw,
+    line: RichLine,
+    *,
+    x: int | None = None,
+    y: int | None = None,
+    opacity: float = 1.0,
+) -> None:
     """Greedy word-wrap: tokenize every span's text into words (each word
     keeping its own span's style) and pack them left-to-right, wrapping to
-    a new row whenever the next word would cross line.x + max_width."""
+    a new row whenever the next word would cross origin_x + max_width.
+
+    `x`/`y` optionally override line.x/line.y (used by video.py to animate
+    position without mutating the request); `opacity` optionally scales
+    alpha (used by video.py for fade animations)."""
+    origin_x = line.x if x is None else x
+    origin_y = line.y if y is None else y
+
     words: list[tuple[str, TextSpan]] = []
     for span in line.spans:
         for word in span.text.split(" "):
@@ -183,8 +197,8 @@ def _draw_wrapped_line(draw: ImageDraw.ImageDraw, line: RichLine) -> None:
             space_width_cache[key] = bbox[2] - bbox[0]
         return space_width_cache[key]
 
-    cursor_x = line.x
-    cursor_y = line.y
+    cursor_x = origin_x
+    cursor_y = origin_y
     row_start = True
 
     for word, span in words:
@@ -192,41 +206,62 @@ def _draw_wrapped_line(draw: ImageDraw.ImageDraw, line: RichLine) -> None:
         bbox = draw.textbbox((0, 0), word, font=font)
         word_width = bbox[2] - bbox[0]
 
-        if not row_start and cursor_x + word_width > line.x + line.max_width:
+        if not row_start and cursor_x + word_width > origin_x + line.max_width:
             cursor_y += row_height
-            cursor_x = line.x
+            cursor_x = origin_x
             row_start = True
 
-        draw.text((cursor_x, cursor_y), word, font=font, fill=tuple(span.color))
+        fill = _with_opacity(span.color, opacity)
+        draw.text((cursor_x, cursor_y), word, font=font, fill=fill)
         cursor_x += word_width + space_width(span)
         row_start = False
 
 
-def _draw_rich_line(draw: ImageDraw.ImageDraw, line: RichLine) -> None:
+def _with_opacity(color: tuple, opacity: float) -> tuple:
+    """RGB tuple -> RGBA tuple with alpha scaled by opacity (for video fades)."""
+    if opacity >= 1.0:
+        return tuple(color)
+    return (*color, round(255 * _clamp01(opacity)))
+
+
+def _draw_rich_line(
+    draw: ImageDraw.ImageDraw,
+    line: RichLine,
+    *,
+    x: int | None = None,
+    y: int | None = None,
+    opacity: float = 1.0,
+) -> None:
+    """`x`/`y` optionally override line.x/line.y and `opacity` optionally
+    scales alpha — both used by video.py to animate this line without
+    mutating the request."""
     if line.max_width > 0:
-        _draw_wrapped_line(draw, line)
+        _draw_wrapped_line(draw, line, x=x, y=y, opacity=opacity)
         return
+
+    origin_x = line.x if x is None else x
+    origin_y = line.y if y is None else y
 
     if line.line_spacing > 0:
         # Vertical stack: each span gets its own row, line_spacing px apart,
-        # all left-aligned at line.x (no horizontal cursor advance).
+        # all left-aligned at origin_x (no horizontal cursor advance).
         for i, span in enumerate(line.spans):
             if not span.text:
                 continue
             font = get_font(span.font_size, bold=span.bold, family=span.font_family)
-            color = tuple(span.color)
-            draw.text((line.x, line.y + i * line.line_spacing), span.text, font=font, fill=color)
+            fill = _with_opacity(span.color, opacity)
+            draw.text((origin_x, origin_y + i * line.line_spacing), span.text, font=font, fill=fill)
         return
 
     # Default: spans render inline on one row, left-to-right.
-    cursor_x = line.x
+    cursor_x = origin_x
     for span in line.spans:
         if not span.text:
             continue
         font = get_font(span.font_size, bold=span.bold, family=span.font_family)
-        color = tuple(span.color)
-        draw.text((cursor_x, line.y), span.text, font=font, fill=color)
-        bbox = draw.textbbox((cursor_x, line.y), span.text, font=font)
+        fill = _with_opacity(span.color, opacity)
+        draw.text((cursor_x, origin_y), span.text, font=font, fill=fill)
+        bbox = draw.textbbox((cursor_x, origin_y), span.text, font=font)
         cursor_x += bbox[2] - bbox[0]
 
 
