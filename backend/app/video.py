@@ -149,6 +149,7 @@ class VideoRenderContext:
         canvas = Image.new("RGBA", (req.canvas_width, req.canvas_height), (*req.background_color, 255))
         _paste_background(canvas, req)
         _apply_overlay(canvas, req.overlay)
+        _apply_overlay(canvas, req.overlay2)
         _paste_secondary_images(canvas, req.secondary_images)
         draw = ImageDraw.Draw(canvas)
         _draw_lines(draw, req.lines)

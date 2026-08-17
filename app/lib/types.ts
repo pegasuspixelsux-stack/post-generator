@@ -68,6 +68,18 @@ export interface OverlayConfig {
   direction: OverlayDirection; // gradient only; anchor placement
 }
 
+// A second, independent overlay layer composited directly on top of
+// `overlay` (same z-order slot). Off by default so it's a no-op until
+// the user turns it on.
+export const DEFAULT_OVERLAY2: OverlayConfig = {
+  type: 'gradient',
+  color: '#000000',
+  opacity: 0,
+  color2: '#000000',
+  opacity2: 0,
+  direction: 'bottom',
+};
+
 export interface WordArtConfig extends AnimationFields {
   url: string; // optional — omitted (empty) means no word art is rendered
   x: number;
@@ -93,6 +105,7 @@ export interface GraphicConfig {
   backgroundImageUrl: string;
   backgroundColor: string; // hex
   overlay: OverlayConfig;
+  overlay2: OverlayConfig;
   logo: LogoConfig;
   secondaryImages: ImageBlock[];
   lines: LineShape[];

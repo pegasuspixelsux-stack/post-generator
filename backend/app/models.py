@@ -119,6 +119,10 @@ class GenerateGraphicRequest(BaseModel):
     background_image_url: Optional[str] = None
     background_color: RGBColor = (24, 24, 27)
     overlay: OverlayConfig = Field(default_factory=OverlayConfig)
+    # A second, independent overlay layer composited directly on top of
+    # `overlay` (same z-order slot). Off by default (opacity 0) so it's a
+    # no-op until the user turns it on.
+    overlay2: OverlayConfig = Field(default_factory=lambda: OverlayConfig(opacity=0.0))
     logo: Optional[LogoConfig] = None
     secondary_images: List[ImageBlock] = Field(default_factory=list)
     lines: List[LineShape] = Field(default_factory=list)  # optional decorative straight lines
