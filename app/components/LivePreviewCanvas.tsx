@@ -101,13 +101,97 @@ function hexToRgba(hex: string, opacity: number): string {
   return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, opacity))})`;
 }
 
+function angleVector(deg: number): { dx: number; dy: number } {
+  const theta = (deg * Math.PI) / 180;
+  return { dx: Math.cos(theta), dy: Math.sin(theta) };
+}
+
+/** For a direction vector at `angleDeg` (0=right, 90=down, clockwise — same
+ * convention as the backend and LineShape.angle), the two canvas corners
+ * with the lowest and highest projection onto that vector. Used as gradient
+ * line endpoints so an angled gradient/cut spans the full canvas correctly
+ * even when it isn't square (mirrors the backend's `_corner_projected_norm`). */
+function projectedLineEndpoints(angleDeg: number, width: number, height: number) {
+  const { dx, dy } = angleVector(angleDeg);
+  const corners: [number, number][] = [[0, 0], [width, 0], [0, height], [width, height]];
+  let min = Infinity, max = -Infinity;
+  let minPt = corners[0], maxPt = corners[0];
+  for (const [x, y] of corners) {
+    const p = x * dx + y * dy;
+    if (p < min) { min = p; minPt = [x, y]; }
+    if (p > max) { max = p; maxPt = [x, y]; }
+  }
+  return { x0: minPt[0], y0: minPt[1], x1: maxPt[0], y1: maxPt[1] };
+}
+
+/** Draws a solid overlay's hard-edged partial block: "circular" traces an
+ * explicit curved boundary path (bulging toward the canvas center) and
+ * fills it; "straight"/"angled" fake a hard edge with a near-instant
+ * gradient color-stop, reusing the same angle-projection math as the
+ * gradient overlay's "angle" direction — mirrors the backend's
+ * `_solid_edge_mask`. */
+function drawSolidBlock(
+  ctx: CanvasRenderingContext2D,
+  overlay: GraphicConfig['overlay'],
+  color: string,
+  width: number,
+  height: number,
+) {
+  const coverage = Math.max(0, Math.min(100, overlay.solidCoverage)) / 100;
+  const fromBottom = overlay.solidPosition === 'bottom';
+
+  if (overlay.solidShape === 'circular') {
+    const bulge = 0.12 * height;
+    const baseY = fromBottom ? height * (1 - coverage) : height * coverage;
+    const boundaryY = (x: number) => {
+      const t = (x / width) * 2 - 1; // -1..1
+      const curve = bulge * (1 - t * t); // 0 at edges, bulges toward the center column
+      return fromBottom ? baseY - curve : baseY + curve;
+    };
+    const steps = 48;
+    ctx.beginPath();
+    ctx.moveTo(0, fromBottom ? height : 0);
+    ctx.lineTo(0, boundaryY(0));
+    for (let i = 1; i <= steps; i++) {
+      const x = (i / steps) * width;
+      ctx.lineTo(x, boundaryY(x));
+    }
+    ctx.lineTo(width, fromBottom ? height : 0);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    return;
+  }
+
+  // "straight" is just "angled" with a zero tilt: both cut along a base
+  // angle pointing into the block (90=down for bottom, 270=up for top).
+  const baseAngle = fromBottom ? 90 : 270;
+  const tilt = overlay.solidShape === 'angled' ? overlay.solidAngle : 0;
+  const { x0, y0, x1, y1 } = projectedLineEndpoints(baseAngle + tilt, width, height);
+  const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
+  const cut = Math.max(0, Math.min(1, 1 - coverage));
+  const eps = 0.001;
+  const transparent = 'rgba(0, 0, 0, 0)';
+  gradient.addColorStop(0, transparent);
+  gradient.addColorStop(Math.max(0, cut - eps), transparent);
+  gradient.addColorStop(Math.min(1, cut + eps), color);
+  gradient.addColorStop(1, color);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+}
+
 function drawOverlay(ctx: CanvasRenderingContext2D, overlay: GraphicConfig['overlay'], width: number, height: number) {
   const opacity = Math.max(0, Math.min(1, overlay.opacity));
 
   if (overlay.type === 'solid') {
     if (opacity <= 0) return;
-    ctx.fillStyle = hexToRgba(overlay.color, opacity);
-    ctx.fillRect(0, 0, width, height);
+    const color = hexToRgba(overlay.color, opacity);
+    if (overlay.solidShape === 'full') {
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, width, height);
+    } else {
+      drawSolidBlock(ctx, overlay, color, width, height);
+    }
     return;
   }
 
@@ -125,6 +209,11 @@ function drawOverlay(ctx: CanvasRenderingContext2D, overlay: GraphicConfig['over
     gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
     gradient.addColorStop(0, anchor);
     gradient.addColorStop(1, fade);
+  } else if (overlay.direction === 'angle') {
+    const { x0, y0, x1, y1 } = projectedLineEndpoints(overlay.angle, width, height);
+    gradient = ctx.createLinearGradient(x0, y0, x1, y1);
+    gradient.addColorStop(0, fade);
+    gradient.addColorStop(1, anchor);
   } else {
     // (x0,y0) is always the fade end, (x1,y1) the anchor end.
     let x0 = 0, y0 = 0, x1 = 0, y1 = 0;

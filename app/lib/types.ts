@@ -57,7 +57,13 @@ export interface RichLine extends AnimationFields {
   max_width: number; // 0 = no wrap (default); >0 = word-wrap all spans' text within this px width, flowing onto new rows
 }
 
-export type OverlayDirection = 'top' | 'bottom' | 'left' | 'right' | 'radial';
+// "angle" generalizes the four axis-aligned presets: anchor placement runs
+// along `angle` degrees (0=right, 90=down, clockwise — same convention as
+// LineShape.angle), so bottom=90, top=270, left=180, right=0.
+export type OverlayDirection = 'top' | 'bottom' | 'left' | 'right' | 'radial' | 'angle';
+
+export type SolidShape = 'full' | 'straight' | 'angled' | 'circular';
+export type SolidPosition = 'top' | 'bottom';
 
 export interface OverlayConfig {
   type: 'solid' | 'gradient';
@@ -66,6 +72,14 @@ export interface OverlayConfig {
   color2: string; // hex — gradient's fade-end color (ignored for solid)
   opacity2: number; // 0..1 (ignored for solid)
   direction: OverlayDirection; // gradient only; anchor placement
+  angle: number; // degrees; gradient only, used when direction === 'angle'
+
+  // solid-only hard-edged partial block; ignored when type === 'gradient'.
+  // solidShape 'full' (default) keeps today's whole-canvas fill.
+  solidShape: SolidShape;
+  solidPosition: SolidPosition; // which edge the block emanates from
+  solidCoverage: number; // 0..100, % of canvas covered from that edge
+  solidAngle: number; // degrees; tilt of the cut line, only for solidShape === 'angled'
 }
 
 // A second, independent overlay layer composited directly on top of
@@ -78,7 +92,29 @@ export const DEFAULT_OVERLAY2: OverlayConfig = {
   color2: '#000000',
   opacity2: 0,
   direction: 'bottom',
+  angle: 0,
+  solidShape: 'full',
+  solidPosition: 'bottom',
+  solidCoverage: 50,
+  solidAngle: 0,
 };
+
+/** Backfills any OverlayConfig fields missing from a value loaded from
+ * localStorage (a custom preset saved before that field existed) with their
+ * defaults, so older saved presets don't crash the editor. `undefined`
+ * (overlay2 entirely absent, e.g. a preset saved before overlay2 existed)
+ * falls back to DEFAULT_OVERLAY2 wholesale. */
+export function withOverlayDefaults(overlay: OverlayConfig | undefined): OverlayConfig {
+  if (!overlay) return DEFAULT_OVERLAY2;
+  // Object.assign (rather than object-spread) because `overlay` may, at
+  // runtime, be missing fields its OverlayConfig type claims it has (data
+  // loaded from localStorage predates them) — spread's "specified more than
+  // once" check assumes the type is accurate and flags this as dead code.
+  return Object.assign(
+    { angle: 0, solidShape: 'full' as const, solidPosition: 'bottom' as const, solidCoverage: 50, solidAngle: 0 },
+    overlay,
+  );
+}
 
 export interface WordArtConfig extends AnimationFields {
   url: string; // optional — omitted (empty) means no word art is rendered

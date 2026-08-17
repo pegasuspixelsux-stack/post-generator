@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { DEFAULT_OVERLAY2, FontFamily, GraphicConfig } from './lib/types';
+import { FontFamily, GraphicConfig, withOverlayDefaults } from './lib/types';
 import { nextId } from './lib/color';
 import { presets } from './lib/presets';
 import { buildGenerateRequestBody, buildVideoRequestBody, OutputFormat, VideoSettings } from './lib/buildRequest';
@@ -97,8 +97,9 @@ export default function PostGenerator() {
   const applyCustomPreset = (preset: CustomPreset) => {
     // Deep-clone on load too, so editing the form never mutates the saved snapshot.
     const cloned: GraphicConfig = JSON.parse(JSON.stringify(preset.config));
-    // Backfill overlay2 for presets saved before it existed.
-    if (!cloned.overlay2) cloned.overlay2 = DEFAULT_OVERLAY2;
+    // Backfill overlay/overlay2 fields missing from presets saved before they existed.
+    cloned.overlay = withOverlayDefaults(cloned.overlay);
+    cloned.overlay2 = withOverlayDefaults(cloned.overlay2);
     setConfig(cloned);
   };
 
