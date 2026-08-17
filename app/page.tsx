@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { FontFamily, GraphicConfig } from './lib/types';
+import { DEFAULT_OVERLAY2, FontFamily, GraphicConfig } from './lib/types';
 import { nextId } from './lib/color';
 import { presets } from './lib/presets';
 import { buildGenerateRequestBody, buildVideoRequestBody, OutputFormat, VideoSettings } from './lib/buildRequest';
@@ -96,7 +96,10 @@ export default function PostGenerator() {
 
   const applyCustomPreset = (preset: CustomPreset) => {
     // Deep-clone on load too, so editing the form never mutates the saved snapshot.
-    setConfig(JSON.parse(JSON.stringify(preset.config)));
+    const cloned: GraphicConfig = JSON.parse(JSON.stringify(preset.config));
+    // Backfill overlay2 for presets saved before it existed.
+    if (!cloned.overlay2) cloned.overlay2 = DEFAULT_OVERLAY2;
+    setConfig(cloned);
   };
 
   const handleSaveCustomPreset = (name: string) => {
@@ -246,6 +249,9 @@ export default function PostGenerator() {
 
         <h2 className="text-lg font-semibold mt-4">Overlay</h2>
         <OverlayEditor overlay={config.overlay} onChange={(overlay) => setConfig({ ...config, overlay })} />
+
+        <h2 className="text-lg font-semibold mt-4">Overlay 2</h2>
+        <OverlayEditor overlay={config.overlay2} onChange={(overlay2) => setConfig({ ...config, overlay2 })} />
 
         <h2 className="text-lg font-semibold mt-4">Logo Config</h2>
         <div className="flex flex-col gap-2">

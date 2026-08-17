@@ -273,6 +273,7 @@ def render_graphic(req: GenerateGraphicRequest) -> bytes:
 
     _paste_background(canvas, req)
     _apply_overlay(canvas, req.overlay)
+    _apply_overlay(canvas, req.overlay2)
     _paste_logo(canvas, req.logo)
     _paste_secondary_images(canvas, req.secondary_images)
 

@@ -101,8 +101,7 @@ function hexToRgba(hex: string, opacity: number): string {
   return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, opacity))})`;
 }
 
-function drawOverlay(ctx: CanvasRenderingContext2D, config: GraphicConfig, width: number, height: number) {
-  const overlay = config.overlay;
+function drawOverlay(ctx: CanvasRenderingContext2D, overlay: GraphicConfig['overlay'], width: number, height: number) {
   const opacity = Math.max(0, Math.min(1, overlay.opacity));
 
   if (overlay.type === 'solid') {
@@ -168,7 +167,8 @@ async function draw(canvas: HTMLCanvasElement, config: GraphicConfig, isCancelle
     if (img) drawCover(ctx, img, 0, 0, width, height);
   }
 
-  drawOverlay(ctx, config, width, height);
+  drawOverlay(ctx, config.overlay, width, height);
+  drawOverlay(ctx, config.overlay2, width, height);
 
   if (config.logo.url) {
     const img = await loadImage(config.logo.url);

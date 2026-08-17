@@ -22,6 +22,14 @@ export function buildGenerateRequestBody(
       opacity2: Number(config.overlay.opacity2),
       direction: config.overlay.direction,
     },
+    overlay2: {
+      type: config.overlay2.type,
+      color: hexToRgb(config.overlay2.color),
+      opacity: Number(config.overlay2.opacity),
+      color2: hexToRgb(config.overlay2.color2),
+      opacity2: Number(config.overlay2.opacity2),
+      direction: config.overlay2.direction,
+    },
     logo: config.logo.url
       ? {
           url: config.logo.url,

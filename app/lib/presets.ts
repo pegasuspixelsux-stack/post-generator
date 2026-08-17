@@ -1,4 +1,4 @@
-import { DEFAULT_ANIMATION, GraphicConfig } from './types';
+import { DEFAULT_ANIMATION, DEFAULT_OVERLAY2, GraphicConfig } from './types';
 import { nextId } from './color';
 
 export interface Preset {
@@ -19,6 +19,7 @@ export const presets: Preset[] = [
       backgroundImageUrl: 'https://picsum.photos/seed/dailymenu/1080/1920',
       backgroundColor: '#18181b',
       overlay: { type: 'solid', color: '#000000', opacity: 0.35, color2: '#000000', opacity2: 0, direction: 'bottom' },
+      overlay2: DEFAULT_OVERLAY2,
       logo: { url: 'https://placehold.co/200x100/png?text=LOGO', x: 80, y: 80, width: 200, height: 100, ...DEFAULT_ANIMATION },
       secondaryImages: [],
       lines: [],
@@ -60,6 +61,7 @@ export const presets: Preset[] = [
       backgroundImageUrl: 'https://picsum.photos/seed/announcement/1080/1920',
       backgroundColor: '#0f172a',
       overlay: { type: 'solid', color: '#000000', opacity: 0.55, color2: '#000000', opacity2: 0, direction: 'bottom' },
+      overlay2: DEFAULT_OVERLAY2,
       logo: { url: 'https://placehold.co/200x100/png?text=LOGO', x: 80, y: 80, width: 200, height: 100, ...DEFAULT_ANIMATION },
       secondaryImages: [],
       lines: [],
@@ -101,6 +103,7 @@ export const presets: Preset[] = [
       backgroundImageUrl: 'https://picsum.photos/seed/eventflyer/1080/1920',
       backgroundColor: '#1c1917',
       overlay: { type: 'gradient', color: '#000000', opacity: 0.75, color2: '#000000', opacity2: 0, direction: 'bottom' },
+      overlay2: DEFAULT_OVERLAY2,
       logo: { url: 'https://placehold.co/200x100/png?text=LOGO', x: 80, y: 80, width: 200, height: 100, ...DEFAULT_ANIMATION },
       secondaryImages: [],
       lines: [],
