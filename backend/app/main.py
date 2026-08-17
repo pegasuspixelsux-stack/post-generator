@@ -47,8 +47,11 @@ GENERATED_DIR.mkdir(exist_ok=True)
 UPLOADS_DIR = _DATA_ROOT / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
 
-ALLOWED_UPLOAD_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15 MB
+ALLOWED_IMAGE_UPLOAD_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+MAX_IMAGE_UPLOAD_BYTES = 15 * 1024 * 1024  # 15 MB
+
+ALLOWED_VIDEO_UPLOAD_TYPES = {"video/mp4"}
+MAX_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB — matches Vercel Functions' request body limit
 
 app = FastAPI(title="Post Generator API")
 api = APIRouter(prefix=API_PREFIX)
@@ -87,26 +90,37 @@ def get_fonts() -> dict:
 
 @api.post("/upload")
 async def upload_image(request: Request, file: UploadFile = File(...)) -> dict:
-    """Save an uploaded image and hand back a URL that can be dropped
-    straight into background_image_url / logo.url / a secondary image's url
-    — the renderer fetches it like any other URL.
+    """Save an uploaded image or MP4 video and hand back a URL that can be
+    dropped straight into background_image_url / logo.url / a secondary
+    image's url / a video export's background_video_url — the renderer
+    fetches it like any other URL.
 
     Uses Vercel Blob when configured (BLOB_READ_WRITE_TOKEN set — durable,
     works across serverless instances). Falls back to local disk otherwise,
     which is the normal case for local development."""
-    if file.content_type not in ALLOWED_UPLOAD_TYPES:
+    if file.content_type in ALLOWED_IMAGE_UPLOAD_TYPES:
+        max_bytes = MAX_IMAGE_UPLOAD_BYTES
+        size_label = "15 MB"
+        allowed_suffixes = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+        default_suffix = ".jpg"
+    elif file.content_type in ALLOWED_VIDEO_UPLOAD_TYPES:
+        max_bytes = MAX_VIDEO_UPLOAD_BYTES
+        size_label = "100 MB"
+        allowed_suffixes = {".mp4"}
+        default_suffix = ".mp4"
+    else:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {file.content_type}")
 
     suffix = Path(file.filename or "").suffix.lower()
-    if suffix not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
-        suffix = ".jpg"
+    if suffix not in allowed_suffixes:
+        suffix = default_suffix
     filename = f"{uuid.uuid4().hex}{suffix}"
 
     data = bytearray()
     while chunk := await file.read(1024 * 1024):
         data.extend(chunk)
-        if len(data) > MAX_UPLOAD_BYTES:
-            raise HTTPException(status_code=413, detail="File too large (max 15 MB)")
+        if len(data) > max_bytes:
+            raise HTTPException(status_code=413, detail=f"File too large (max {size_label})")
     payload = bytes(data)
 
     if blob_store.is_configured():

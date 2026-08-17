@@ -157,3 +157,10 @@ class VideoRequest(BaseModel):
     fade_in: float = 0.0  # seconds; whole-frame fade from background_color at clip start
     fade_out: float = 0.0  # seconds; whole-frame fade to background_color at clip end
     persist: bool = False  # if true, save the rendered mp4 under /assets for later retrieval
+
+    # Optional uploaded MP4 used as the animated background instead of
+    # base.background_image_url — every frame of this video is decoded,
+    # cover-resized to the canvas, and composited under the overlay/logo/
+    # text layers. When set, `fps` and `duration` above are ignored: the
+    # output's frame rate and length match this source video exactly.
+    background_video_url: Optional[str] = None
