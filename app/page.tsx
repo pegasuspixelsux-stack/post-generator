@@ -9,6 +9,7 @@ import { buildGenerateRequestBody, buildVideoRequestBody, OutputFormat, VideoSet
 import { NumberField, ColorField, SelectField, AlignRow, AnimationFieldsRow } from './components/fields';
 import { alignedX } from './lib/align';
 import { ImageUrlField } from './components/ImageUrlField';
+import { VideoUrlField } from './components/VideoUrlField';
 import { OverlayEditor } from './components/OverlayEditor';
 import { RichLinesEditor } from './components/RichLinesEditor';
 import { SecondaryImagesEditor } from './components/SecondaryImagesEditor';
@@ -40,7 +41,13 @@ export default function PostGenerator() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [logoPadding, setLogoPadding] = useState(80);
-  const [videoSettings, setVideoSettings] = useState<VideoSettings>({ fps: 30, duration: 3, fadeIn: 0, fadeOut: 0 });
+  const [videoSettings, setVideoSettings] = useState<VideoSettings>({
+    fps: 30,
+    duration: 3,
+    fadeIn: 0,
+    fadeOut: 0,
+    backgroundVideoUrl: '',
+  });
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
@@ -379,6 +386,17 @@ export default function PostGenerator() {
           set to &quot;None&quot; stay static the whole clip.
         </p>
         <div className="flex flex-col gap-2">
+          <VideoUrlField
+            label="Background Video (MP4, optional)"
+            value={videoSettings.backgroundVideoUrl}
+            onChange={(v) => setVideoSettings({ ...videoSettings, backgroundVideoUrl: v })}
+          />
+          {videoSettings.backgroundVideoUrl && (
+            <p className="text-xs text-amber-500">
+              Duration and FPS below are ignored — the export matches this video&apos;s own length and frame rate
+              (up to 60s).
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <NumberField
               label="Duration (s)"

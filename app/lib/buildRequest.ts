@@ -101,6 +101,10 @@ export interface VideoSettings {
   duration: number;
   fadeIn: number;
   fadeOut: number;
+  // Uploaded MP4 used as the animated background instead of a static image.
+  // When set, `fps`/`duration` above are ignored — the output's frame rate
+  // and length match this source video (see backend/app/video.py).
+  backgroundVideoUrl: string;
 }
 
 /** Shape matches the backend's VideoRequest (backend/app/models.py). Video
@@ -113,6 +117,7 @@ export function buildVideoRequestBody(config: GraphicConfig, video: VideoSetting
     duration: Number(video.duration),
     fade_in: Number(video.fadeIn),
     fade_out: Number(video.fadeOut),
+    background_video_url: video.backgroundVideoUrl || null,
     persist,
   };
 }
