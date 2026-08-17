@@ -1,7 +1,7 @@
 'use client';
 
-import { OverlayConfig, OverlayDirection } from '../lib/types';
-import { ColorField, SelectField } from './fields';
+import { OverlayConfig, OverlayDirection, SolidPosition, SolidShape } from '../lib/types';
+import { ColorField, NumberField, SelectField } from './fields';
 
 const DIRECTIONS: { value: OverlayDirection; label: string }[] = [
   { value: 'bottom', label: 'Bottom (strong at bottom)' },
@@ -9,17 +9,52 @@ const DIRECTIONS: { value: OverlayDirection; label: string }[] = [
   { value: 'left', label: 'Left (strong at left)' },
   { value: 'right', label: 'Right (strong at right)' },
   { value: 'radial', label: 'Radial (strong at center)' },
+  { value: 'angle', label: 'Angle (custom degrees)' },
+];
+
+const SOLID_SHAPES: { value: SolidShape; label: string }[] = [
+  { value: 'full', label: 'Full (fills the canvas)' },
+  { value: 'straight', label: 'Straight cut' },
+  { value: 'angled', label: 'Angled cut' },
+  { value: 'circular', label: 'Circular (curved) cut' },
+];
+
+const SOLID_POSITIONS: { value: SolidPosition; label: string }[] = [
+  { value: 'bottom', label: 'Bottom' },
+  { value: 'top', label: 'Top' },
 ];
 
 function OpacitySlider({
   label,
   value,
   onChange,
+  orientation = 'horizontal',
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
+  orientation?: 'horizontal' | 'vertical';
 }) {
+  if (orientation === 'vertical') {
+    return (
+      <label className="flex flex-col items-center gap-1 text-sm text-zinc-400">
+        <span className="text-center">
+          {label} ({value.toFixed(2)})
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="h-32"
+          style={{ writingMode: 'vertical-lr', direction: 'rtl', WebkitAppearance: 'slider-vertical' }}
+        />
+      </label>
+    );
+  }
+
   return (
     <label className="flex flex-col gap-1 text-sm text-zinc-400">
       {label} ({value.toFixed(2)})
@@ -63,31 +98,66 @@ export function OverlayEditor({
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <ColorField
-          label={isGradient ? 'Color (anchor)' : 'Color'}
-          value={overlay.color}
-          onChange={(v) => onChange({ ...overlay, color: v })}
-        />
-        <OpacitySlider
-          label={isGradient ? 'Opacity (anchor)' : 'Opacity'}
-          value={overlay.opacity}
-          onChange={(v) => onChange({ ...overlay, opacity: v })}
-        />
-      </div>
+      {isGradient ? (
+        <div className="flex items-start gap-4">
+          <div className="flex-1">
+            <ColorField label="Color (anchor)" value={overlay.color} onChange={(v) => onChange({ ...overlay, color: v })} />
+          </div>
+          <OpacitySlider
+            label="Opacity (anchor)"
+            value={overlay.opacity}
+            onChange={(v) => onChange({ ...overlay, opacity: v })}
+            orientation="vertical"
+          />
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <ColorField label="Color" value={overlay.color} onChange={(v) => onChange({ ...overlay, color: v })} />
+            <OpacitySlider label="Opacity" value={overlay.opacity} onChange={(v) => onChange({ ...overlay, opacity: v })} />
+          </div>
+          <SelectField
+            label="Shape"
+            value={overlay.solidShape}
+            options={SOLID_SHAPES}
+            onChange={(v) => onChange({ ...overlay, solidShape: v as SolidShape })}
+          />
+          {overlay.solidShape !== 'full' && (
+            <div className="grid grid-cols-2 gap-2">
+              <SelectField
+                label="Position"
+                value={overlay.solidPosition}
+                options={SOLID_POSITIONS}
+                onChange={(v) => onChange({ ...overlay, solidPosition: v as SolidPosition })}
+              />
+              <NumberField
+                label="Coverage (%)"
+                value={overlay.solidCoverage}
+                onChange={(v) => onChange({ ...overlay, solidCoverage: v })}
+              />
+            </div>
+          )}
+          {overlay.solidShape === 'angled' && (
+            <NumberField
+              label="Cut angle (degrees)"
+              value={overlay.solidAngle}
+              onChange={(v) => onChange({ ...overlay, solidAngle: v })}
+            />
+          )}
+        </>
+      )}
 
       {isGradient && (
         <>
-          <div className="grid grid-cols-2 gap-2">
-            <ColorField
-              label="Color (fade)"
-              value={overlay.color2}
-              onChange={(v) => onChange({ ...overlay, color2: v })}
-            />
+          <div className="flex items-start gap-4">
+            <div className="flex-1">
+              <ColorField label="Color (fade)" value={overlay.color2} onChange={(v) => onChange({ ...overlay, color2: v })} />
+            </div>
             <OpacitySlider
               label="Opacity (fade)"
               value={overlay.opacity2}
               onChange={(v) => onChange({ ...overlay, opacity2: v })}
+              orientation="vertical"
             />
           </div>
           <SelectField
@@ -96,6 +166,13 @@ export function OverlayEditor({
             options={DIRECTIONS}
             onChange={(v) => onChange({ ...overlay, direction: v as OverlayDirection })}
           />
+          {overlay.direction === 'angle' && (
+            <NumberField
+              label="Angle (degrees)"
+              value={overlay.angle}
+              onChange={(v) => onChange({ ...overlay, angle: v })}
+            />
+          )}
         </>
       )}
     </div>

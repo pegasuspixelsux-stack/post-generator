@@ -1,7 +1,24 @@
-import { GraphicConfig } from './types';
+import { GraphicConfig, OverlayConfig } from './types';
 import { hexToRgb } from './color';
 
 export type OutputFormat = 'jpeg' | 'png' | 'webp';
+
+/** Shape matches the backend's OverlayConfig (backend/app/models.py). */
+function serializeOverlay(overlay: OverlayConfig) {
+  return {
+    type: overlay.type,
+    color: hexToRgb(overlay.color),
+    opacity: Number(overlay.opacity),
+    color2: hexToRgb(overlay.color2),
+    opacity2: Number(overlay.opacity2),
+    direction: overlay.direction,
+    angle: Number(overlay.angle),
+    solid_shape: overlay.solidShape,
+    solid_position: overlay.solidPosition,
+    solid_coverage: Number(overlay.solidCoverage),
+    solid_angle: Number(overlay.solidAngle),
+  };
+}
 
 /** Shape matches the backend's GenerateGraphicRequest (backend/app/models.py). */
 export function buildGenerateRequestBody(
@@ -14,22 +31,8 @@ export function buildGenerateRequestBody(
     canvas_height: Number(config.canvasHeight),
     background_image_url: config.backgroundImageUrl || null,
     background_color: hexToRgb(config.backgroundColor),
-    overlay: {
-      type: config.overlay.type,
-      color: hexToRgb(config.overlay.color),
-      opacity: Number(config.overlay.opacity),
-      color2: hexToRgb(config.overlay.color2),
-      opacity2: Number(config.overlay.opacity2),
-      direction: config.overlay.direction,
-    },
-    overlay2: {
-      type: config.overlay2.type,
-      color: hexToRgb(config.overlay2.color),
-      opacity: Number(config.overlay2.opacity),
-      color2: hexToRgb(config.overlay2.color2),
-      opacity2: Number(config.overlay2.opacity2),
-      direction: config.overlay2.direction,
-    },
+    overlay: serializeOverlay(config.overlay),
+    overlay2: serializeOverlay(config.overlay2),
     logo: config.logo.url
       ? {
           url: config.logo.url,

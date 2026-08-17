@@ -6,7 +6,9 @@ from typing import List, Literal, Optional, Tuple
 from pydantic import BaseModel, Field
 
 RGBColor = Tuple[int, int, int]
-OverlayDirection = Literal["top", "bottom", "left", "right", "radial"]
+OverlayDirection = Literal["top", "bottom", "left", "right", "radial", "angle"]
+SolidShape = Literal["full", "straight", "angled", "circular"]
+SolidPosition = Literal["top", "bottom"]
 OutputFormat = Literal["jpeg", "png", "webp"]
 AnimationType = Literal["none", "slide-left", "slide-right", "slide-up", "slide-down", "fade"]
 
@@ -99,10 +101,15 @@ class LineShape(BaseModel):
 class OverlayConfig(BaseModel):
     """The scrim drawn over the background for text legibility.
 
-    For type="solid", `color`/`opacity` fill the whole canvas uniformly.
+    For type="solid", `color`/`opacity` fill the whole canvas uniformly by
+    default (`solid_shape="full"`), or a hard-edged partial block when
+    `solid_shape` is "straight"/"angled"/"circular" (see those fields below).
     For type="gradient", the overlay blends from `color`/`opacity` (the
     "anchor" end, placed per `direction`) to `color2`/`opacity2` (the fade
-    end). direction="radial" anchors at the center, fading to the edges.
+    end). direction="radial" anchors at the center, fading to the edges;
+    direction="angle" anchors along `angle` degrees (0=right, 90=down,
+    clockwise — same convention as LineShape.angle), generalizing the four
+    axis-aligned presets (bottom=90, top=270, left=180, right=0).
     """
 
     type: Literal["solid", "gradient"] = "solid"
@@ -111,6 +118,13 @@ class OverlayConfig(BaseModel):
     color2: RGBColor = (0, 0, 0)
     opacity2: float = 0.0
     direction: OverlayDirection = "bottom"
+    angle: float = 0.0  # degrees; gradient only, used when direction == "angle"
+
+    # solid-only hard-edged partial block; ignored when type == "gradient"
+    solid_shape: SolidShape = "full"
+    solid_position: SolidPosition = "bottom"  # which edge the block emanates from
+    solid_coverage: float = 50.0  # 0-100, % of canvas covered from that edge
+    solid_angle: float = 0.0  # degrees; tilt of the cut line, only for solid_shape == "angled"
 
 
 class GenerateGraphicRequest(BaseModel):

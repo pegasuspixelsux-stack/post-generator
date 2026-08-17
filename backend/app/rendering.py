@@ -5,6 +5,7 @@ import io
 import logging
 import math
 
+import numpy as np
 import requests
 from PIL import Image, ImageDraw, ImageOps
 
@@ -69,10 +70,37 @@ def _clamp01(v: float) -> float:
     return max(0.0, min(1.0, v))
 
 
-def _gradient_mask(direction: str, size: tuple[int, int]) -> Image.Image:
+def _corner_projected_norm(angle_deg: float, size: tuple[int, int]) -> np.ndarray:
+    """0..1 float array (h, w): each pixel's projection onto the direction
+    vector at `angle_deg` (0=right, 90=down, clockwise — same convention as
+    LineShape.angle), normalized so 0 = the canvas corner furthest against
+    that direction and 1 = the corner furthest along it. This is what lets a
+    linear gradient/cut run at an arbitrary angle on a non-square canvas
+    without the distortion a rotated-then-stretched square texture would
+    introduce."""
+    w, h = size
+    theta = math.radians(angle_deg)
+    dx, dy = math.cos(theta), math.sin(theta)
+    xs = np.arange(w, dtype=np.float64).reshape(1, w)
+    ys = np.arange(h, dtype=np.float64).reshape(h, 1)
+    proj = xs * dx + ys * dy
+    corner_xs = np.array([0, w - 1, 0, w - 1], dtype=np.float64)
+    corner_ys = np.array([0, 0, h - 1, h - 1], dtype=np.float64)
+    corner_proj = corner_xs * dx + corner_ys * dy
+    pmin, pmax = corner_proj.min(), corner_proj.max()
+    return (proj - pmin) / max(pmax - pmin, 1e-6)
+
+
+def _gradient_mask(direction: str, size: tuple[int, int], angle: float = 0.0) -> Image.Image:
     """A grayscale mask where 255 = the overlay's anchor end (per `direction`)
-    and 0 = the fade end. Built from Pillow's 256x256 gradient primitives and
-    stretched to the canvas size."""
+    and 0 = the fade end. The four axis-aligned directions and "radial" are
+    built from Pillow's 256x256 gradient primitives and stretched to the
+    canvas size; "angle" is computed directly at canvas resolution via
+    `_corner_projected_norm` so it stays correct on non-square canvases."""
+    if direction == "angle":
+        norm = _corner_projected_norm(angle, size)
+        return Image.fromarray(np.clip(norm * 255.0, 0, 255).astype(np.uint8), mode="L")
+
     if direction == "radial":
         # radial_gradient is 0 at center, 255 at the edge; invert so the
         # anchor (255) sits at the center, fading out to the edges.
@@ -90,6 +118,39 @@ def _gradient_mask(direction: str, size: tuple[int, int]) -> Image.Image:
     return base.resize(size, Image.BILINEAR)
 
 
+def _solid_edge_mask(overlay: OverlayConfig, size: tuple[int, int]) -> Image.Image:
+    """A hard-edged (0 or 255) mask for a solid overlay's partial block:
+    255 = inside the colored block, 0 = outside. `solid_position` picks
+    which edge the block emanates from, `solid_coverage` how much of the
+    canvas it covers from that edge, and `solid_shape` the boundary style —
+    "straight" (a horizontal cut), "angled" (the same cut, tilted by
+    `solid_angle`), or "circular" (a curved cut bulging toward center)."""
+    w, h = size
+    coverage = _clamp01(overlay.solid_coverage / 100.0)
+    from_bottom = overlay.solid_position == "bottom"
+
+    if overlay.solid_shape == "circular":
+        xs = np.linspace(-1.0, 1.0, w, dtype=np.float64)
+        curve = 0.12 * h * (1.0 - xs**2)  # 0 at edges, bulges toward the center column
+        ys = np.arange(h, dtype=np.float64).reshape(h, 1)
+        if from_bottom:
+            base_y = h * (1.0 - coverage)
+            mask = (ys >= (base_y - curve)).astype(np.uint8) * 255
+        else:
+            base_y = h * coverage
+            mask = (ys <= (base_y + curve)).astype(np.uint8) * 255
+        return Image.fromarray(mask, mode="L")
+
+    # "straight" is just "angled" with a zero tilt: both are a hard cut line,
+    # projected via the same angle math the gradient uses, anchored to a base
+    # angle pointing into the block (90=down for bottom, 270=up for top).
+    base_angle = 90.0 if from_bottom else 270.0
+    tilt = overlay.solid_angle if overlay.solid_shape == "angled" else 0.0
+    norm = _corner_projected_norm(base_angle + tilt, size)
+    mask = (norm >= (1.0 - coverage)).astype(np.uint8) * 255
+    return Image.fromarray(mask, mode="L")
+
+
 def _apply_overlay(canvas: Image.Image, overlay: OverlayConfig) -> None:
     opacity = _clamp01(overlay.opacity)
 
@@ -97,7 +158,13 @@ def _apply_overlay(canvas: Image.Image, overlay: OverlayConfig) -> None:
         if opacity <= 0:
             return
         scrim = Image.new("RGBA", canvas.size, (*overlay.color, round(255 * opacity)))
-        canvas.alpha_composite(scrim)
+        if overlay.solid_shape == "full":
+            canvas.alpha_composite(scrim)
+            return
+        mask = _solid_edge_mask(overlay, canvas.size)
+        transparent = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+        block_layer = Image.composite(scrim, transparent, mask)
+        canvas.alpha_composite(block_layer)
         return
 
     # gradient: blend from color/opacity (anchor) to color2/opacity2 (fade)
@@ -106,7 +173,7 @@ def _apply_overlay(canvas: Image.Image, overlay: OverlayConfig) -> None:
         return
     layer_anchor = Image.new("RGBA", canvas.size, (*overlay.color, round(255 * opacity)))
     layer_fade = Image.new("RGBA", canvas.size, (*overlay.color2, round(255 * opacity2)))
-    mask = _gradient_mask(overlay.direction, canvas.size)
+    mask = _gradient_mask(overlay.direction, canvas.size, overlay.angle)
     gradient_layer = Image.composite(layer_anchor, layer_fade, mask)
     canvas.alpha_composite(gradient_layer)
 
